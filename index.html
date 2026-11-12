@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dynamic Weather Wallpaper</title>
+    <script src="wallpaper.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <script>
+        const LATITUDE = 21.0285;
+        const LONGITUDE = 105.8542;
+        const WEATHER_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
+
+        function getAstronomicalMoonPhase(date = new Date()) {
+            const SYNODIC_MONTH_MS = 29.530588853 * 86400000;
+            const KNOWN_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0);
+            const phase = ((date.getTime() - KNOWN_NEW_MOON_MS) % SYNODIC_MONTH_MS) / SYNODIC_MONTH_MS;
+            return phase < 0 ? phase + 1.0 : phase;
+        }
+
+        function calculateMoonBoost(cloudDensity, moonPhaseVal) {
+            const p = (moonPhaseVal !== undefined) ? moonPhaseVal : targetWeather.moonPhase;
+            const m = Math.max(0.0, Math.min(1.0, 1.0 - Math.abs(2.0 * p - 1.0)));
+            return 1.00 + m * 0.60;
+        }
+
+        function calculateRealTimeOfDay() {
+            const now = new Date();
+            const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() * 0.001;
+            return seconds / 86400.0;
+        }
+
+        let targetWeather = {
+            cloudDensity: 0.5,
+            rainIntensity: 0.0,
+            windSpeed: 0.15,
+            windRad: 45.0 * (Math.PI / 180.0),
+            windDir: [0.7071, 0.353],
+            sunriseHour: 6.0,
+            sunsetHour: 18.0,
+            moonPhase: getAstronomicalMoonPhase()
+        };
+
+        let currentWeather = {
+            timeOfDay: 0.5,
+            cloudDensity: 0.5,
+            rainIntensity: 0.0,
+            windSpeed: 0.15,
+            windRad: 45.0 * (Math.PI / 180.0),
+            windDir: [0.7071, 0.353],
+            sunriseHour: 6.0,
+            sunsetHour: 18.0,
+            moonPhase: getAstronomicalMoonPhase(),
+            moonBoost: 1.0
+        };
+
+        const canvas = document.getElementById("glcanvas");
+        const vsSource = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+uniform vec4 u_uvTransform;
+void main() {
+    vec2 screenUV = a_position * 0.5 + 0.5;
+    v_uv = screenUV * u_uvTransform.xy + u_uvTransform.zw;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+        const bakeVsSource = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+    v_uv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+        const bakeFsSource = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+uniform sampler2D u_texture;
+
+#define DEFAULT_IMAGE_ASPECT 2.155
+
+float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+float sdCapsule(vec2 p, vec2 a, vec2 b, float r) {
+    vec2 pa = p - a, ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - r;
+}
+
+float capsuleMask(vec2 uv, vec2 a, vec2 b, float r, float soft) {
+    vec2 S = vec2(DEFAULT_IMAGE_ASPECT, 1.0);
+    return smoothstep(0.0, soft, sdCapsule(uv * S, a * S, b * S, r));
+}
+
+float getMetalWingMask(vec2 uv) {
+    if (uv.x < 0.08 || uv.x > 0.42 || uv.y < 0.22 || uv.y > 0.74) return 1.0;
+    float m = 1.0;
+    m = min(m, capsuleMask(uv, vec2(0.12, 0.48), vec2(0.31, 0.57), 0.065, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.15, 0.63), vec2(0.33, 0.60), 0.060, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.18, 0.30), vec2(0.32, 0.51), 0.065, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.26, 0.42), vec2(0.36, 0.58), 0.075, 0.03));
+    return m;
+}
+
+float getCharacterMask(vec2 uv) {
+    if (uv.x < 0.06 || uv.x > 0.78 || uv.y < 0.15 || uv.y > 0.96) return 1.0;
+
+    float m = getMetalWingMask(uv);
+    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.37, 0.60), 0.090, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.46, 0.91), 0.045, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.37, 0.60), vec2(0.44, 0.55), 0.060, 0.04));
+    m = min(m, capsuleMask(uv, vec2(0.41, 0.66), vec2(0.50, 0.68), 0.035, 0.03));
+
+    m = min(m, capsuleMask(uv, vec2(0.37, 0.31), vec2(0.50, 0.30), 0.090, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.47, 0.42), vec2(0.58, 0.58), 0.100, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.56, 0.55), vec2(0.66, 0.32), 0.100, 0.06));
+    return m;
+}
+
+float rectSoft(vec2 uv, vec2 lo, vec2 hi, float s) {
+    vec2 a = smoothstep(lo - s, lo, uv);
+    vec2 b = 1.0 - smoothstep(hi, hi + s, uv);
+    return a.x * a.y * b.x * b.y;
+}
+
+float getReflectionZone(vec2 uv) {
+    float z = 0.0;
+    z = max(z, rectSoft(uv, vec2(0.32, 0.84), vec2(0.54, 1.00), 0.03));
+    z = max(z, rectSoft(uv, vec2(0.57, 0.74), vec2(0.75, 1.00), 0.03));
+    z = max(z, rectSoft(uv, vec2(0.76, 0.25), vec2(0.93, 1.00), 0.03));
+    return z;
+}
+
+float getTopLeftZone(vec2 uv) {
+    float xZone = 1.0 - smoothstep(0.30, 0.44, uv.x);
+    float yZone = smoothstep(0.42, 0.56, uv.y);
+    return xZone * yZone;
+}
+
+float getWaterMask(vec2 uv, vec3 baseColor, float charMask) {
+    float lum = getLuminance(baseColor);
+    float refl = getReflectionZone(uv);
+    float tl   = getTopLeftZone(uv);
+    float noMask = max(refl, tl);
+
+    float m = uv.x + 0.15 * uv.y;
+    float petalZone = 1.0 - smoothstep(0.80, 0.95, m);
+    float isPetal   = smoothstep(0.38, 0.55, lum);
+    float flowerMask = 1.0 - petalZone * isPetal * (1.0 - noMask);
+
+    float leafZone  = 1.0 - smoothstep(0.40, 0.52, uv.y);
+    float isRedLeaf = smoothstep(0.06, 0.20, baseColor.r - baseColor.b);
+    float leafMask  = 1.0 - leafZone * isRedLeaf * (1.0 - noMask);
+
+    float wm = smoothstep(0.40, 0.43, uv.x) * (1.0 - smoothstep(0.55, 0.58, uv.x))
+             * (1.0 - smoothstep(0.15, 0.19, uv.y));
+    float wmMask = 1.0 - wm;
+
+    float btmLeftFlowers = 1.0 - rectSoft(uv, vec2(-0.05, -0.05), vec2(0.23, 0.32), 0.04);
+
+    return clamp(charMask * flowerMask * leafMask * wmMask * btmLeftFlowers, 0.0, 1.0);
+}
+
+void main() {
+    vec3 rawColor = texture(u_texture, v_uv).rgb;
+    float charMask = getCharacterMask(v_uv);
+    float waterMask = getWaterMask(v_uv, rawColor, charMask);
+    float wingMask = getMetalWingMask(v_uv);
+
+    float bgLakeMask = smoothstep(0.60, 0.90, v_uv.y);
+    float regionExclusion = 1.0 - smoothstep(0.20, 0.25, v_uv.x) * (1.0 - smoothstep(0.49, 0.54, v_uv.x)) * smoothstep(0.69, 0.74, v_uv.y) * (1.0 - smoothstep(1.02, 1.07, v_uv.y));
+    float mistDepthMask = bgLakeMask * charMask * regionExclusion;
+
+    float shallowZone = smoothstep(0.14, 0.24, v_uv.x) * (1.0 - smoothstep(0.76, 0.86, v_uv.x))
+                      * smoothstep(0.04, 0.14, v_uv.y) * (1.0 - smoothstep(0.66, 0.76, v_uv.y));
+    float causticMask = shallowZone * waterMask * wingMask;
+
+    fragColor = vec4(waterMask, mistDepthMask, causticMask, 1.0);
+}`;
+        const fsSource = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform vec2 u_imageResolution;
+uniform int u_scaleMode;
+uniform float u_time;
+uniform sampler2D u_texture;
+uniform sampler2D u_maskTexture;
+
+uniform float u_rainIntensity;
+uniform float u_windSpeed;
+uniform vec3 u_windParams;
+uniform float u_moonBoost;
+
+uniform vec3 u_ambient;
+uniform vec4 u_dayNightFactors;
+uniform vec4 u_weatherFactors;
+uniform vec4 u_mistParams;
+uniform float u_isFullMoonNight;
+
+uniform float u_causticBoost;
+uniform float u_rayBoost;
+uniform float u_glintBoost;
+uniform float u_starBoost;
+uniform float u_rippleBoost;
+
+#define DEFAULT_IMAGE_ASPECT 2.155
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(233.34, 851.73));
+    p += dot(p, p + 23.45);
+    return fract(p.x * p.y);
+}
+
+vec2 hash22(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    vec4 xs = i.x + vec4(0.0, 1.0, 0.0, 1.0);
+    vec4 ys = i.y + vec4(0.0, 0.0, 1.0, 1.0);
+
+    vec4 p0 = fract(xs * 233.34);
+    vec4 p1 = fract(ys * 851.73);
+    vec4 d = p0 * (p0 + 23.45) + p1 * (p1 + 23.45);
+    p0 += d;
+    p1 += d;
+    vec4 h = fract(p0 * p1);
+
+    return mix(mix(h.x, h.y, u.x), mix(h.z, h.w, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+    for (int i = 0; i < 3; i++) {
+        v += a * noise(p);
+        p = rot * p * 2.0;
+        a *= 0.5;
+    }
+    return v;
+}
+
+float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+vec2 getWaterRipples(vec2 uv, float rainIntensity, float time, float waterMask) {
+    if (rainIntensity <= 0.01 || waterMask <= 0.005) return vec2(0.0);
+
+    float depthProgress = clamp(uv.y * 0.75 + uv.x * 0.25, 0.0, 1.0);
+    float perspectiveScale = mix(1.35, 0.78, depthProgress);
+    float distFactor = mix(1.0, 0.5, clamp(uv.y, 0.0, 1.0));
+
+    vec2 totalNormal = vec2(0.0);
+    float gridScale = 10.8;
+    vec2 gv = uv * gridScale;
+    vec2 id = floor(gv);
+
+    mat2 rotGround = mat2(0.9492, 0.3146, -0.3146, 0.9492);
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    float cellThreshold = 0.88 - norm * 0.55;
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 cellOffset = vec2(float(x), float(y));
+            vec2 cellId = id + cellOffset;
+
+            float speedBase = 0.8 + hash21(cellId + 0.1) * 0.35;
+            float cellTime = mod(time, 256.0 / speedBase);
+            float totalProgress = cellTime * speedBase + hash21(cellId + 0.45) * 100.0;
+
+            float cycleIndex = floor(totalProgress);
+            float dropTime = fract(totalProgress);
+
+            float cyc = mod(cycleIndex, 256.0);
+            vec2 dynamicSeed = cellId + vec2(cyc * 17.13, cyc * 31.41);
+
+            if (hash21(dynamicSeed) > cellThreshold) {
+                vec2 dropPos = hash22(dynamicSeed + 0.73) * 0.7 + 0.15;
+                vec2 p = gv - (cellId + dropPos);
+
+                p = rotGround * p;
+                p.y *= perspectiveScale;
+
+                float maxRadius = mix(0.48, 0.75, hash21(dynamicSeed + 0.2)) * distFactor;
+                float waveRadius = dropTime * maxRadius;
+
+                float distSq = dot(p, p);
+                if (distSq < waveRadius * waveRadius && distSq > 0.00001) {
+                    float dist = sqrt(distSq);
+                    float waveDist = waveRadius - dist;
+                    float waveWidth = 0.075 * distFactor;
+                    float rippleProfile = sin(waveDist / waveWidth * 6.2831853);
+                    float edgeFade = smoothstep(0.0, 0.03 * distFactor, waveDist) * (1.0 - smoothstep(waveWidth * 1.5, waveWidth * 2.5, waveDist));
+                    float xDrop = 1.0 - dropTime;
+                    float lifeFade = xDrop * (xDrop * 0.5 + 0.5);
+                    float strength = rippleProfile * edgeFade * lifeFade;
+
+                    vec2 grad = p / dist;
+                    totalNormal += grad * strength * (0.015 * distFactor);
+                }
+            }
+        }
+    }
+    return totalNormal * (waterMask * (norm * 0.35 + 0.03));
+}
+
+float getForegroundRain(vec2 uv, float rainIntensity, float time) {
+    if (rainIntensity <= 0.01) return 0.0;
+
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    vec2 rainUV = uv;
+    rainUV.x -= (1.0 - rainUV.y) * u_windParams.z;
+
+    float t = mod(time, 256.0);
+    float streak = 0.0;
+
+    float prob1 = min(norm * 0.165, 0.165);
+    vec2 st1 = vec2(rainUV.x * 41.0, rainUV.y * 1.4 + t * 19.0);
+    vec2 id1 = floor(st1);
+    vec2 gv1 = fract(st1);
+    float h1 = hash21(id1 + vec2(7.8, 3.4));
+    if (h1 < prob1) {
+        float dropX = hash21(id1 + vec2(13.5, 47.1)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id1 + vec2(3.1, 8.9)) - 0.5) * 0.05;
+        float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
+        float dy = gv1.y;
+        streak += smoothstep(0.038, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    vec2 st2 = vec2(rainUV.x * 59.0 + 17.3, rainUV.y * 1.8 + t * 25.0 + 31.5);
+    vec2 id2 = floor(st2);
+    vec2 gv2 = fract(st2);
+    float h2 = hash21(id2 + vec2(19.1, 63.7));
+    if (h2 < prob1) {
+        float dropX = hash21(id2 + vec2(81.2, 23.9)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id2 + vec2(15.4, 71.2)) - 0.5) * 0.05;
+        float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
+        float dy = gv2.y;
+        streak += smoothstep(0.038, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    return streak * 0.07;
+}
+
+float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
+    if (rainIntensity <= 0.01) return 0.0;
+    float waterDepthMask = smoothstep(0.35, 0.65, uv.y);
+    if (waterDepthMask <= 0.01) return 0.0;
+
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    vec2 rainUV = uv;
+    rainUV.x -= (1.0 - rainUV.y) * (u_windParams.z * 0.85);
+
+    float t = mod(time, 256.0);
+    float streak = 0.0;
+
+    float prob2 = min(norm * 0.270, 0.270);
+    vec2 st1 = vec2(rainUV.x * 79.0, rainUV.y * 2.2 + t * 22.0);
+    vec2 id1 = floor(st1);
+    vec2 gv1 = fract(st1);
+    float h1 = hash21(id1 + vec2(1.2, 9.8));
+    if (h1 < prob2) {
+        float dropX = hash21(id1 + vec2(51.3, 17.4)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id1 + vec2(5.4, 2.1)) - 0.5) * 0.04;
+        float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
+        float dy = gv1.y;
+        streak += smoothstep(0.032, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    vec2 st2 = vec2(rainUV.x * 113.0 + 29.1, rainUV.y * 2.7 + t * 28.0 + 47.3);
+    vec2 id2 = floor(st2);
+    vec2 gv2 = fract(st2);
+    float h2 = hash21(id2 + vec2(37.5, 82.3));
+    if (h2 < prob2) {
+        float dropX = hash21(id2 + vec2(93.8, 64.1)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id2 + vec2(11.7, 43.6)) - 0.5) * 0.04;
+        float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
+        float dy = gv2.y;
+        streak += smoothstep(0.032, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    return streak * 0.038 * waterDepthMask;
+}
+
+float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
+    if (causticMask <= 0.005 || uv.y > 0.72 || uv.x < 0.18 || uv.x > 0.82) return 0.0;
+
+    vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * 16.0;
+    vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32), 2048.0);
+    vec2 t2 = mod(vec2(-animTime * 0.38, animTime * 0.41), 2048.0);
+
+    float n1 = abs(noise(p + t1) - 0.5);
+    float n2 = abs(noise(p * 1.35 + vec2(4.2, 8.7) + t2) - 0.5);
+    float ridge1 = 1.0 - smoothstep(0.0, 0.11, n1);
+    float ridge2 = 1.0 - smoothstep(0.0, 0.11, n2);
+
+    return pow(ridge1 * ridge2, 1.35) * causticMask;
+}
+
+vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay, float dawnFactor, float sunsetFactor, float cloudCover, float normRain, float origLum) {
+    float rayWindow = max(dawnRay, sunsetRay) * clamp(1.0 - cloudCover, 0.0, 1.0) * (1.0 - normRain);
+    if (rayWindow <= 0.01) return vec3(0.0);
+
+    vec2 rel = uv - vec2(-0.05, 1.05);
+    float beamCoord = rel.x * 0.78 + rel.y * 0.62;
+    float distFromCorner = length(rel * vec2(0.65, 1.0));
+    float radialFade = (1.0 - smoothstep(0.15, 1.35, distFromCorner)) * smoothstep(0.10, 0.85, uv.y);
+    if (radialFade <= 0.005) return vec3(0.0);
+
+    float shift = mod(animTime * 0.035, 2048.0);
+    float ray1 = noise(vec2(beamCoord * 11.0 + shift, uv.y * 0.6));
+    float ray2 = noise(vec2(beamCoord * 23.0 - shift * 0.7, uv.y * 0.9 + 5.3));
+    float shafts = smoothstep(0.45, 0.88, ray1 * 0.65 + ray2 * 0.35);
+
+    vec3 dawnRayCol   = vec3(1.00, 0.90, 0.78);
+    vec3 sunsetRayCol = vec3(1.00, 0.60, 0.35);
+    vec3 rayCol = mix(dawnRayCol, sunsetRayCol, sunsetFactor / (dawnFactor + sunsetFactor + 0.0001));
+
+    float antiClip = 1.0 - origLum * 0.55;
+    return rayCol * (shafts * radialFade * rayWindow * antiClip * 0.22);
+}
+
+void main() {
+    vec2 uv = v_uv;
+
+    if (u_scaleMode == 0 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    float imageAspect = (u_imageResolution.y > 0.0) ? (u_imageResolution.x / u_imageResolution.y) : DEFAULT_IMAGE_ASPECT;
+    float animTime = mod(u_time, 86400.0);
+    float iTime = u_time;
+
+    float dayFactor = u_dayNightFactors.x;
+    float nightFactor = u_dayNightFactors.y;
+    float dawnFactor = u_dayNightFactors.z;
+    float sunsetFactor = u_dayNightFactors.w;
+
+    float normRain = u_weatherFactors.x;
+    float finalCloudCover = u_weatherFactors.y;
+    float dawnRay = u_weatherFactors.z;
+    float sunsetRay = u_weatherFactors.w;
+
+    vec3 mistColor = u_mistParams.rgb;
+    float morningMistWindow = u_mistParams.a;
+
+    vec3 ambient = u_ambient;
+    float isFullMoonNight = u_isFullMoonNight;
+    float moonBoost = u_moonBoost;
+    float rainIntensity = u_rainIntensity;
+
+    vec4 maskData = texture(u_maskTexture, uv);
+    float waterMask = maskData.r;
+    float mistDepthMask = maskData.g;
+    float causticMask = maskData.b;
+
+    vec2 rippleOffset = getWaterRipples(uv, rainIntensity, iTime, waterMask) * u_rippleBoost;
+    vec2 distortedUV = clamp(uv + rippleOffset, 0.0, 1.0);
+
+    vec3 baseColor = texture(u_texture, distortedUV).rgb;
+    float origLum = getLuminance(baseColor);
+
+    float effectiveCloudFactor = 1.0;
+    if (dayFactor > 0.01) {
+        float windSpeed = u_windSpeed;
+        vec2 cloudUV = vec2(uv.x * imageAspect, uv.y) * 1.25 + mod(u_windParams.xy * (animTime * windSpeed), 2048.0);
+
+        float cloudNoise = fbm(cloudUV);
+        float cloudThreshold = mix(0.62, 0.30, finalCloudCover);
+        float cloudMask = smoothstep(cloudThreshold, cloudThreshold + 0.18, cloudNoise);
+
+        float cloudDimming = mix(0.12, 0.25, finalCloudCover);
+        float rawCloudFactor = mix(1.0, 1.0 - cloudDimming, cloudMask);
+        effectiveCloudFactor = mix(1.0, rawCloudFactor, dayFactor);
+    }
+
+    vec3 nightProcessed = pow(baseColor, vec3(1.0 + nightFactor * 0.30));
+    vec3 color = mix(nightProcessed, baseColor, dayFactor) * ambient;
+    color *= effectiveCloudFactor;
+
+    if (dayFactor > 0.20 && normRain < 0.60) {
+        float caustics = getUnderwaterCaustics(distortedUV, animTime, causticMask);
+        vec3 causticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
+        float sunVisibility = smoothstep(0.20, 0.55, dayFactor) * (1.0 - finalCloudCover * 0.65) * (1.0 - normRain);
+        color += causticTint * (caustics * 0.22 * max(0.0, sunVisibility) * u_causticBoost);
+    }
+
+    color += getCrepuscularRays(uv, animTime, dawnRay, sunsetRay, dawnFactor, sunsetFactor, finalCloudCover, normRain, origLum) * u_rayBoost;
+
+    if (morningMistWindow > 0.01 && mistDepthMask > 0.01) {
+        vec2 mistUV = vec2(uv.x * imageAspect, uv.y) * vec2(1.0, 2.5) + vec2(mod(animTime * 0.03, 2048.0), 0.0);
+        float mistNoise = fbm(mistUV);
+        float mistDensity = mistNoise * mistDepthMask * morningMistWindow;
+        color = mix(color, mistColor, mistDensity * 0.65);
+    }
+
+    if (nightFactor > 0.01) {
+        vec2 moonCenter = vec2(0.50, 0.78);
+        float moonDist = length((uv - moonCenter) * vec2(1.2, 1.0));
+        float moonBeam = 1.0 - smoothstep(0.1, 0.9, moonDist);
+        vec3 moonColor = vec3(0.55, 0.78, 1.05);
+
+        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
+
+        color += moonColor * (moonBeam * 0.14 * moonBoost) * moonEmerge * (1.0 - normRain * 0.50);
+        color += moonColor * pow(origLum, 2.0) * (0.30 * moonBoost) * moonEmerge;
+
+        vec2 waterWaveUV = uv * 14.0 + mod(vec2(animTime * 0.12, animTime * 0.07), 2048.0);
+        float waterGlimmer = smoothstep(0.42, 0.78, noise(waterWaveUV));
+        color += moonColor * (waterGlimmer * pow(origLum, 2.5) * (0.40 * moonBoost)) * moonEmerge;
+    }
+
+    float fgRain = getForegroundRain(uv, rainIntensity, iTime);
+    float bgRain = getBackgroundRain(uv, rainIntensity, iTime);
+    color += mix(vec3(1.0), vec3(0.88, 0.94, 1.0), nightFactor) * (fgRain + bgRain) * mix(0.9, 1.0, nightFactor);
+
+    float gray = getLuminance(color);
+    float desatAmount = mix(0.30, 0.20, isFullMoonNight);
+    color = mix(color, vec3(gray), nightFactor * desatAmount);
+
+    if (dayFactor > 0.20) {
+        vec2 gp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 60.0 + mod(vec2(animTime * 0.30, animTime * 0.20), 2048.0);
+        float g = smoothstep(0.82, 0.95, noise(gp))
+                * smoothstep(0.82, 0.95, noise(gp * 1.7 + 9.0 + mod(animTime * 0.50, 2048.0)));
+        vec3 glintCol = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.75, 0.50), sunsetFactor);
+        color += glintCol * g * 0.50 * dayFactor
+                * (1.0 - finalCloudCover * 0.60) * (1.0 - normRain) * waterMask * u_glintBoost;
+    }
+
+    if (nightFactor > 0.30 && finalCloudCover < 1.0) {
+        vec2 sp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 90.0 + rippleOffset * 80.0;
+        vec2 cell = floor(sp);
+        float h = hash21(cell);
+
+        if (h > 0.985) {
+            vec2 f = fract(sp) - 0.5 - (hash22(cell) - 0.5) * 0.5;
+            float r = length(f);
+
+            float speed1 = 2.2 + hash21(cell + vec2(3.1, 7.4)) * 3.6;
+            float speed2 = 1.0 + hash21(cell + vec2(8.9, 1.7)) * 2.8;
+            float phase1 = hash21(cell + vec2(5.5, 2.3)) * 6.2831853;
+            float phase2 = hash21(cell + vec2(1.2, 9.6)) * 6.2831853;
+
+            float s1 = sin(mod(iTime * speed1 + phase1, 6.2831853));
+            float s2 = sin(mod(iTime * speed2 + phase2, 6.2831853));
+            float rawTwinkle = s1 * 0.60 + s2 * 0.40;
+
+            float twinkleBase = clamp(rawTwinkle * 0.5 + 0.5, 0.0, 1.0);
+            float twinkle = 0.15 + 0.85 * pow(twinkleBase, 2.4);
+
+            float sizeRandom = 0.85 + hash21(cell + vec2(4.7, 6.2)) * 0.40;
+            float core = 1.0 - smoothstep(0.0, 0.07 * sizeRandom, r);
+            float halo = 1.0 - smoothstep(0.0, 0.22 * sizeRandom, r);
+
+            float flare = pow(twinkleBase, 6.0) * 0.70;
+            float starShape = (core * 1.5 + halo * 0.5 + flare * core) * twinkle;
+
+            vec3 starColor = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 1.0, 1.0), core);
+            color += starColor * (starShape * 1.50 * nightFactor * u_starBoost)
+                   * waterMask * clamp(1.0 - finalCloudCover, 0.0, 1.0);
+        }
+    }
+
+    vec3 excess = max(vec3(0.0), color - 0.82);
+    color += excess * excess * 0.45;
+
+    fragColor = vec4(color, 1.0);
+}`;
+
+        function createShader(glContext, type, source) {
+            const shader = glContext.createShader(type);
+            glContext.shaderSource(shader, source);
+            glContext.compileShader(shader);
+            if (!glContext.getShaderParameter(shader, glContext.COMPILE_STATUS)) {
+                console.error("Shader compile error:", glContext.getShaderInfoLog(shader));
+                glContext.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        let gl = null;
+        let program = null;
+        let bakeProgram = null;
+        let positionBuffer = null;
+        let texture = null;
+        let maskTexture = null;
+        let maskFBO = null;
+
+        let bakePositionLoc = null;
+        let bakeTexLoc = null;
+
+        let uImgResLoc = null;
+        let uUvTransformLoc = null;
+        let uScaleModeLoc = null;
+        let uTimeLoc = null;
+        let uTextureLoc = null;
+        let uMaskTextureLoc = null;
+
+        let uRainIntensityLoc = null;
+        let uWindSpeedLoc = null;
+        let uWindParamsLoc = null;
+        let uMoonBoostLoc = null;
+
+        let uAmbientLoc = null;
+        let uDayNightFactorsLoc = null;
+        let uWeatherFactorsLoc = null;
+        let uMistParamsLoc = null;
+        let uIsFullMoonNightLoc = null;
+
+        let uCausticBoostLoc = null;
+        let uRayBoostLoc = null;
+        let uGlintBoostLoc = null;
+        let uStarBoostLoc = null;
+        let uRippleBoostLoc = null;
+
+        let imgWidth = 3840;
+        let imgHeight = 1782;
+        let scaleMode = 0;
+        const uvTransform = new Float32Array([1, 1, 0, 0]);
+
+        function updateUvTransform() {
+            if (!gl || !uUvTransformLoc) return;
+            const screenAspect = canvas.width / canvas.height;
+            const imageAspect = (imgHeight > 0) ? (imgWidth / imgHeight) : 2.155;
+            let sx = 1.0, sy = 1.0, ox = 0.0, oy = 0.0;
+            if (scaleMode === 0) {
+                if (screenAspect > imageAspect) {
+                    const s = imageAspect / screenAspect;
+                    sx = 1.0 / s;
+                    ox = 0.5 - 0.5 / s;
+                } else {
+                    const s = screenAspect / imageAspect;
+                    sy = 1.0 / s;
+                    oy = 0.5 - 0.5 / s;
+                }
+            } else {
+                if (screenAspect > imageAspect) {
+                    const s = screenAspect / imageAspect;
+                    sy = 1.0 / s;
+                    oy = 0.5 - 0.5 / s;
+                } else {
+                    const s = imageAspect / screenAspect;
+                    sx = 1.0 / s;
+                    ox = 0.5 - 0.5 / s;
+                }
+            }
+            uvTransform[0] = sx;
+            uvTransform[1] = sy;
+            uvTransform[2] = ox;
+            uvTransform[3] = oy;
+            gl.useProgram(program);
+            gl.uniform4fv(uUvTransformLoc, uvTransform);
+        }
+
+        function initWebGLResources() {
+            gl = canvas.getContext("webgl2", { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: "high-performance" });
+            if (!gl) {
+                alert("Browser does not support WebGL 2.0!");
+                return false;
+            }
+
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Shader link error:", gl.getProgramInfoLog(program));
+                return false;
+            }
+
+            const bakeVs = createShader(gl, gl.VERTEX_SHADER, bakeVsSource);
+            const bakeFs = createShader(gl, gl.FRAGMENT_SHADER, bakeFsSource);
+            bakeProgram = gl.createProgram();
+            gl.attachShader(bakeProgram, bakeVs);
+            gl.attachShader(bakeProgram, bakeFs);
+            gl.linkProgram(bakeProgram);
+
+            if (!gl.getProgramParameter(bakeProgram, gl.LINK_STATUS)) {
+                console.error("Bake link error:", gl.getProgramInfoLog(bakeProgram));
+                return false;
+            }
+
+            gl.useProgram(program);
+
+            positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1,
+                 3, -1,
+                -1,  3
+            ]), gl.STATIC_DRAW);
+
+            bakePositionLoc = gl.getAttribLocation(bakeProgram, "a_position");
+            bakeTexLoc = gl.getUniformLocation(bakeProgram, "u_texture");
+
+            const positionLoc = gl.getAttribLocation(program, "a_position");
+            gl.enableVertexAttribArray(positionLoc);
+            gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+            uImgResLoc = gl.getUniformLocation(program, "u_imageResolution");
+            uUvTransformLoc = gl.getUniformLocation(program, "u_uvTransform");
+            uScaleModeLoc = gl.getUniformLocation(program, "u_scaleMode");
+            uTimeLoc = gl.getUniformLocation(program, "u_time");
+            uTextureLoc = gl.getUniformLocation(program, "u_texture");
+            uMaskTextureLoc = gl.getUniformLocation(program, "u_maskTexture");
+
+            uRainIntensityLoc = gl.getUniformLocation(program, "u_rainIntensity");
+            uWindSpeedLoc = gl.getUniformLocation(program, "u_windSpeed");
+            uWindParamsLoc = gl.getUniformLocation(program, "u_windParams");
+            uMoonBoostLoc = gl.getUniformLocation(program, "u_moonBoost");
+
+            uAmbientLoc = gl.getUniformLocation(program, "u_ambient");
+            uDayNightFactorsLoc = gl.getUniformLocation(program, "u_dayNightFactors");
+            uWeatherFactorsLoc = gl.getUniformLocation(program, "u_weatherFactors");
+            uMistParamsLoc = gl.getUniformLocation(program, "u_mistParams");
+            uIsFullMoonNightLoc = gl.getUniformLocation(program, "u_isFullMoonNight");
+
+            uCausticBoostLoc = gl.getUniformLocation(program, "u_causticBoost");
+            uRayBoostLoc = gl.getUniformLocation(program, "u_rayBoost");
+            uGlintBoostLoc = gl.getUniformLocation(program, "u_glintBoost");
+            uStarBoostLoc = gl.getUniformLocation(program, "u_starBoost");
+            uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
+
+            gl.uniform1i(uScaleModeLoc, 0);
+            gl.uniform1f(uCausticBoostLoc, 1.0);
+            gl.uniform1f(uRayBoostLoc, 1.0);
+            gl.uniform1f(uGlintBoostLoc, 1.0);
+            gl.uniform1f(uStarBoostLoc, 1.0);
+            gl.uniform1f(uRippleBoostLoc, 1.0);
+
+            texture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([15, 20, 35, 255]));
+
+            maskTexture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+
+            maskFBO = gl.createFramebuffer();
+
+            gl.uniform1i(uTextureLoc, 0);
+            gl.uniform1i(uMaskTextureLoc, 1);
+
+            return true;
+        }
+
+        initWebGLResources();
+
+        function bakeMasks(w, h) {
+            if (!gl || !bakeProgram || !maskFBO || !maskTexture) return;
+            const bakeW = Math.max(1, Math.round(w * 0.5));
+            const bakeH = Math.max(1, Math.round(h * 0.5));
+
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bakeW, bakeH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, maskFBO);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, maskTexture, 0);
+
+            const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                return;
+            }
+
+            gl.viewport(0, 0, bakeW, bakeH);
+            gl.useProgram(bakeProgram);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(bakePositionLoc);
+            gl.vertexAttribPointer(bakePositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.uniform1i(bakeTexLoc, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            const posLoc = gl.getAttribLocation(program, "a_position");
+            gl.useProgram(program);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        function applyImageToTexture(img) {
+            if (!gl || !texture) return;
+            imgWidth = img.naturalWidth || img.width || 3107;
+            imgHeight = img.naturalHeight || img.height || 1440;
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            if (uImgResLoc) {
+                gl.useProgram(program);
+                gl.uniform2f(uImgResLoc, imgWidth, imgHeight);
+            }
+            bakeMasks(imgWidth, imgHeight);
+            updateUvTransform();
+        }
+
+        function loadFromDataUrl(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                applyImageToTexture(img);
+            };
+            img.src = dataUrl;
+        }
+
+        function initWallpaperImage() {
+            if (window.DEFAULT_WALLPAPER) {
+                loadFromDataUrl(window.DEFAULT_WALLPAPER);
+                return;
+            }
+
+            try {
+                const saved = localStorage.getItem("weather_wallpaper_custom");
+                if (saved) {
+                    loadFromDataUrl(saved);
+                    return;
+                }
+            } catch (e) { }
+
+            const img = new Image();
+            img.onload = () => {
+                applyImageToTexture(img);
+            };
+            img.onerror = () => { };
+            img.src = "wallpaper.jpg";
+        }
+
+        initWallpaperImage();
+
+        function resize() {
+            if (!gl) return;
+            const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+            const w = Math.round(window.innerWidth * dpr);
+            const h = Math.round(window.innerHeight * dpr);
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+                gl.viewport(0, 0, w, h);
+                updateUvTransform();
+            }
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        let hasInitializedWeather = false;
+
+        async function updateWeather() {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=is_day,rain,precipitation,cloud_cover,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+
+                const cloudPct = (data.current && data.current.cloud_cover !== undefined) ? data.current.cloud_cover : 50;
+                targetWeather.cloudDensity = Math.max(0.0, Math.min(1.0, cloudPct / 100.0));
+
+                const rainMm = (data.current && (data.current.rain !== undefined ? data.current.rain : (data.current.precipitation !== undefined ? data.current.precipitation : 0.0))) || 0.0;
+                targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
+
+                const speedKmh = (data.current && data.current.wind_speed_10m !== undefined) ? data.current.wind_speed_10m : 5.0;
+                targetWeather.windSpeed = Math.max(0.08, Math.min(0.35, speedKmh / 50.0));
+                const windDeg = (data.current && data.current.wind_direction_10m !== undefined) ? data.current.wind_direction_10m : 45.0;
+                targetWeather.windRad = windDeg * (Math.PI / 180.0);
+                targetWeather.windDir[0] = Math.cos(targetWeather.windRad);
+                targetWeather.windDir[1] = Math.sin(targetWeather.windRad) * 0.5;
+
+                targetWeather.moonPhase = getAstronomicalMoonPhase();
+
+                if (data.daily) {
+                    const now = new Date();
+                    const y = now.getFullYear();
+                    const m = String(now.getMonth() + 1).padStart(2, "0");
+                    const d = String(now.getDate()).padStart(2, "0");
+                    const dateKey = `${y}-${m}-${d}`;
+                    let dayIdx = 0;
+                    if (data.daily.time) {
+                        const idx = data.daily.time.indexOf(dateKey);
+                        if (idx !== -1) dayIdx = idx;
+                    }
+                    if (data.daily.sunrise && data.daily.sunrise[dayIdx]) {
+                        const parts = data.daily.sunrise[dayIdx].split("T")[1].split(":");
+                        targetWeather.sunriseHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                    }
+                    if (data.daily.sunset && data.daily.sunset[dayIdx]) {
+                        const parts = data.daily.sunset[dayIdx].split("T")[1].split(":");
+                        targetWeather.sunsetHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                    }
+                }
+
+                if (!hasInitializedWeather) {
+                    currentWeather.cloudDensity = targetWeather.cloudDensity;
+                    currentWeather.rainIntensity = targetWeather.rainIntensity;
+                    currentWeather.windSpeed = targetWeather.windSpeed;
+                    currentWeather.windRad = targetWeather.windRad;
+                    currentWeather.windDir[0] = targetWeather.windDir[0];
+                    currentWeather.windDir[1] = targetWeather.windDir[1];
+                    currentWeather.sunriseHour = targetWeather.sunriseHour;
+                    currentWeather.sunsetHour = targetWeather.sunsetHour;
+                    currentWeather.moonPhase = targetWeather.moonPhase;
+                    currentWeather.moonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase);
+                    hasInitializedWeather = true;
+                }
+            } catch (err) { }
+        }
+
+        updateWeather();
+        setInterval(updateWeather, WEATHER_UPDATE_INTERVAL_MS);
+
+        canvas.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }, false);
+
+        canvas.addEventListener("webglcontextrestored", () => {
+            initWebGLResources();
+            resize();
+            initWallpaperImage();
+            if (isPageVisible && !animationFrameId) {
+                lastRenderTimeMs = 0;
+                lastFrameTime = performance.now();
+                animationFrameId = requestAnimationFrame(render);
+            }
+        }, false);
+
+        let isPageVisible = !document.hidden;
+        let animationFrameId = null;
+
+        document.addEventListener("visibilitychange", () => {
+            isPageVisible = !document.hidden;
+            if (isPageVisible) {
+                lastRenderTimeMs = 0;
+                lastFrameTime = performance.now();
+                if (!animationFrameId) {
+                    animationFrameId = requestAnimationFrame(render);
+                }
+            } else {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+            }
+        });
+
+        function smoothstep(edge0, edge1, x) {
+            const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3.0 - 2.0 * t);
+        }
+
+        function mix(x, y, a) {
+            return x * (1.0 - a) + y * a;
+        }
+
+        const TARGET_FPS = 60;
+        const FRAME_INTERVAL_MS = 1000.0 / TARGET_FPS;
+        let lastRenderTimeMs = 0;
+        let startTime = performance.now();
+        let lastFrameTime = performance.now();
+
+        function render(nowMs) {
+            if (!isPageVisible) {
+                animationFrameId = null;
+                return;
+            }
+
+            const now = nowMs || performance.now();
+            animationFrameId = requestAnimationFrame(render);
+
+            if (lastRenderTimeMs > 0 && (now - lastRenderTimeMs < FRAME_INTERVAL_MS - 1.0)) {
+                return;
+            }
+            lastRenderTimeMs = now;
+
+            const dt = (lastFrameTime > 0) ? Math.min((now - lastFrameTime) * 0.001, 0.1) : 0.016;
+            lastFrameTime = now;
+
+            const lerpFactor = 1.0 - Math.exp(-3.0 * dt);
+            const currentTime = (now - startTime) * 0.001;
+
+            currentWeather.timeOfDay = calculateRealTimeOfDay();
+
+            let effectiveCloud = targetWeather.cloudDensity;
+            let effectiveRain = targetWeather.rainIntensity;
+            let effectiveWindSpeed = targetWeather.windSpeed;
+            let effectiveWindRad = targetWeather.windRad;
+            let effectiveSunrise = targetWeather.sunriseHour;
+            let effectiveSunset = targetWeather.sunsetHour;
+            let effectiveMoonPhase = targetWeather.moonPhase;
+
+            currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
+            currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
+            currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * lerpFactor;
+
+            let dRad = effectiveWindRad - currentWeather.windRad;
+            while (dRad > Math.PI) dRad -= 2.0 * Math.PI;
+            while (dRad < -Math.PI) dRad += 2.0 * Math.PI;
+            currentWeather.windRad += dRad * lerpFactor;
+
+            const cosW = Math.cos(currentWeather.windRad);
+            const sinW = Math.sin(currentWeather.windRad) * 0.5;
+            const wLen = Math.hypot(cosW, sinW);
+            const normWindX = (wLen > 0.001) ? (cosW / wLen) : 0.7071;
+            const normWindY = (wLen > 0.001) ? (sinW / wLen) : 0.353;
+            const windSlant = normWindX * Math.max(0.06, Math.min(0.45, currentWeather.windSpeed * 1.8));
+
+            currentWeather.windDir[0] = cosW;
+            currentWeather.windDir[1] = sinW;
+
+            currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
+            currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
+
+            let dMoon = effectiveMoonPhase - currentWeather.moonPhase;
+            if (dMoon > 0.5) dMoon -= 1.0;
+            else if (dMoon < -0.5) dMoon += 1.0;
+            currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
+
+            const effectiveMoonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase);
+            currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
+
+            const currentHour = currentWeather.timeOfDay * 24.0;
+            const sunrise = currentWeather.sunriseHour;
+            const sunset = currentWeather.sunsetHour;
+
+            const morningRise = smoothstep(sunrise - 0.50, sunrise + 0.50, currentHour);
+            const eveningSet = 1.0 - smoothstep(sunset - 0.50, sunset + 0.50, currentHour);
+            const dayFactor = Math.max(0.0, Math.min(1.0, morningRise * eveningSet));
+            const nightFactor = 1.0 - dayFactor;
+
+            const dawnFactor = Math.exp(-Math.pow((currentHour - sunrise) / 0.70, 2.0));
+            const sunsetFactor = Math.exp(-Math.pow((currentHour - sunset) / 0.70, 2.0));
+
+            const dawnRay = dawnFactor * smoothstep(sunrise - 0.30, sunrise + 0.15, currentHour);
+            const sunsetRay = sunsetFactor * (1.0 - smoothstep(sunset - 0.15, sunset + 0.30, currentHour));
+
+            const normRain = Math.max(0.0, Math.min(1.0, currentWeather.rainIntensity * 0.15));
+            const finalCloudCover = Math.max(0.0, Math.min(1.0, currentWeather.cloudDensity + normRain * 0.35));
+            const lightIntensity = Math.max(0.30, Math.min(1.0, 1.05 - finalCloudCover * 0.60));
+
+            const dayR = mix(0.85, 1.04, lightIntensity);
+            const dayG = mix(0.88, 1.00, lightIntensity);
+            const dayB = mix(0.94, 0.96, lightIntensity);
+
+            const dawnR = mix(1.02, 1.14, lightIntensity);
+            const dawnG = mix(0.92, 0.98, lightIntensity);
+            const dawnB = mix(0.88, 0.90, lightIntensity);
+
+            const sunsetR = mix(1.15, 1.35, lightIntensity);
+            const sunsetG = mix(0.70, 0.78, lightIntensity);
+            const sunsetB = mix(0.50, 0.45, lightIntensity);
+
+            const nightR = 0.22 * currentWeather.moonBoost;
+            const nightG = 0.32 * currentWeather.moonBoost;
+            const nightB = 0.55 * currentWeather.moonBoost;
+
+            let ambR = mix(nightR, dayR, dayFactor);
+            let ambG = mix(nightG, dayG, dayFactor);
+            let ambB = mix(nightB, dayB, dayFactor);
+
+            const effDawnCoeff = 0.65 + 0.35 * dayFactor;
+            const effDawnR = dawnR * effDawnCoeff;
+            const effDawnG = dawnG * effDawnCoeff;
+            const effDawnB = dawnB * effDawnCoeff;
+
+            const effSunsetCoeff = 0.65 + 0.35 * dayFactor;
+            const effSunsetR = sunsetR * effSunsetCoeff;
+            const effSunsetG = sunsetG * effSunsetCoeff;
+            const effSunsetB = sunsetB * effSunsetCoeff;
+
+            const dawnWeight = dawnFactor * 0.60;
+            ambR = mix(ambR, effDawnR, dawnWeight);
+            ambG = mix(ambG, effDawnG, dawnWeight);
+            ambB = mix(ambB, effDawnB, dawnWeight);
+
+            const sunsetWeight = sunsetFactor * 0.60;
+            ambR = mix(ambR, effSunsetR, sunsetWeight);
+            ambG = mix(ambG, effSunsetG, sunsetWeight);
+            ambB = mix(ambB, effSunsetB, sunsetWeight);
+
+            const rainDim = normRain * 0.40;
+            ambR = mix(ambR, ambR * 0.82, rainDim);
+            ambG = mix(ambG, ambG * 0.86, rainDim);
+            ambB = mix(ambB, ambB * 0.92, rainDim);
+
+            const isFullMoonNight = Math.max(0.0, Math.min(1.0, (currentWeather.moonBoost - 1.00) / 0.60));
+
+            const autoMist = smoothstep(sunrise - 1.2, sunrise - 0.1, currentHour) * (1.0 - smoothstep(sunrise + 0.6, sunrise + 1.8, currentHour));
+            const morningMistWindow = autoMist;
+
+            const mistProgress = smoothstep(sunrise - 0.35, sunrise + 0.35, currentHour);
+            const mistDayR = mix(0.92, 1.0, dawnFactor);
+            const mistDayG = mix(0.95, 0.97, dawnFactor);
+            const mistDayB = mix(1.0, 0.92, dawnFactor);
+
+            const mistR = mix(0.35, mistDayR, mistProgress);
+            const mistG = mix(0.45, mistDayG, mistProgress);
+            const mistB = mix(0.60, mistDayB, mistProgress);
+
+            if (gl && program) {
+                gl.uniform1f(uTimeLoc, currentTime);
+                gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
+                gl.uniform1f(uWindSpeedLoc, currentWeather.windSpeed);
+                gl.uniform3f(uWindParamsLoc, normWindX, normWindY, windSlant);
+                gl.uniform1f(uMoonBoostLoc, currentWeather.moonBoost);
+
+                gl.uniform3f(uAmbientLoc, ambR, ambG, ambB);
+                gl.uniform4f(uDayNightFactorsLoc, dayFactor, nightFactor, dawnFactor, sunsetFactor);
+                gl.uniform4f(uWeatherFactorsLoc, normRain, finalCloudCover, dawnRay, sunsetRay);
+                gl.uniform4f(uMistParamsLoc, mistR, mistG, mistB, morningMistWindow);
+                gl.uniform1f(uIsFullMoonNightLoc, isFullMoonNight);
+
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(render);
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    </script>
+</body>
+</html>
