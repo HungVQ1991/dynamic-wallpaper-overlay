@@ -1,11 +1,12 @@
 # Dynamic Weather Wallpaper
 
 **Note from author:**
+
 0: Unless there is a bug fix, this repository will be taken down in at most a week. The project is a personal project and is not intended to be published
 
 1: The guide that you are reading below is written by an AI agent, so while I did proofread the installation guide please read the specs and performances with a grain of salt
 
-2: The original shader files (index.html) is handwritten so in theory the wallpaper should not wreak havoc on the desktop, but the effect viewer (controls.html) is a makeshift AI-generated file that is derived from the original shader, so there may be visual/performance bugs while running controls.html that does not represent the final quality
+2: The original shader files (index.html) is handwritten so in theory the wallpaper should not wreak havoc on the desktop, but the effect viewer (controls.html) is a makeshift AI-generated file that is derived from the original shader for easier modification, so there may be visual/performance bugs while running controls.html that does not represent the final quality
 
 3: The wallpaper is set at 21:9 ratio for a cinematic/melancholic feel (as well as most of the other default settings). If you want to view the wallpaper in full screen, refer to the guide below
 
@@ -13,10 +14,15 @@
 
 5: If you find a bug, refer to note 4. If the AI agent cannot fix it, please open an issue ticket
 
-6: I tested on a 4K screen using AMD Radeon 860M iGPU and Lively Wallpaper; the wallpaper used ~10% GPU capacity, around 30MB RAM and negligible CPU usage so the wallpaper should not crash on most modern systems
+6: If you have questions, refer to note 4.
+
+7: I tested on a 4K screen using AMD Radeon 860M iGPU and Lively Wallpaper; the wallpaper used ~10% GPU capacity, around 30MB RAM and negligible CPU usage so the wallpaper should not crash on most modern systems
+
+---
 
 > **A Beautiful, Real-Time Animated Desktop Wallpaper for Windows**  
 > *Automatically mirrors the weather, sun, and moon from the real world onto your desktop with realistic rain, wind, and water lighting effects—built to run silky smooth without slowing down your computer.*
+
 
 ---
 
@@ -115,10 +121,8 @@ If you are viewing this project on GitHub and want to save it to your computer:
 3. **Add Your Wallpaper:**
    - Click the **`+ Add Wallpaper`** button in the top-right corner.
    - Click **`Browse`** and navigate to your wallpaper folder:  
-     `C:\Users\PC\Documents\WeatherWallpaper\`
-   - Choose:
-     - **`index.html`** for a clean, pure live background without any buttons on screen.
-     - **`controls.html`** if you prefer having an interactive settings panel in the corner of your desktop.
+     `dynamic-weather-overlay\`
+   - Choose: **`index.html`** for a clean, pure live background without any buttons on screen.
    - Click **`Open`**.
 4. **Enjoy:**
    - Enter any name you like (e.g., *My Weather Wallpaper*) and click **`OK`**.
@@ -134,7 +138,7 @@ If you already use [Wallpaper Engine](https://store.steampowered.com/app/431960/
 2. Click **`Wallpaper Editor`** (or right-click the Wallpaper Engine tray icon by your clock and choose *Create Wallpaper*).
 3. Select **`Create New Wallpaper`** → choose **`New Web Wallpaper`**.
 4. In the file browser, click on:  
-   `C:\Users\PC\Documents\WeatherWallpaper\index.html`
+   `dynamic-weather-overlay\index.html`
 5. Name it *Dynamic Weather Wallpaper* and set your preferred screen resolution.
 6. Click **`File`** → **`Save`**, then click **`Apply`**.
 
@@ -152,12 +156,12 @@ You can also run this on a secondary monitor or TV screen without installing any
 
 ## How to Customize Your Settings
 
-At the very top of both [`index.html`](file:///C:/Users/PC/Documents/WeatherWallpaper/index.html) and [`controls.html`](file:///C:/Users/PC/Documents/WeatherWallpaper/controls.html), there is an easy-to-read list of settings. You can change your city, lock the time to night, make it constantly rainy, or turn up the sparkles.
+At the very top of both [`index.html`](dynamic-weather-overlay/index.html) and [`controls.html`](dynamic-weather-overlay/controls.html), there is an easy-to-read list of settings. You can change your city, lock the time to night, make it constantly rainy, or turn up the sparkles.
 
 ### Step-by-Step: Changing Settings in Notepad
 
 1. Open your wallpaper folder in Windows File Explorer:  
-   `C:\Users\PC\Documents\WeatherWallpaper\`
+   `dynamic-weather-overlay\`
 2. Right-click on **`index.html`** (or **`controls.html`**) and select **Open with** → **Notepad**.
 3. Look at the top of the file (lines 38 to 65). You will see simple lines like this:
 
@@ -233,7 +237,7 @@ At the very top of both [`index.html`](file:///C:/Users/PC/Documents/WeatherWall
 
 ## Interactive Control Studio (`controls.html`)
 
-If you want to experiment with different visual looks on the fly without editing text files, open [`controls.html`](file:///C:/Users/PC/Documents/WeatherWallpaper/controls.html) in your browser.
+If you want to experiment with different visual looks on the fly without editing text files, open [`controls.html`](file:///C:/Users/PC/Documents/dynamic-weather-overlay/controls.html) in your browser.
 
 ### On-Screen Sliders & Real-Time Controls
 * **Live Status Box:** In the upper corner, you can see your connection status, your local time, and the current moon phase (like *First Quarter* or *Full Moon*).
