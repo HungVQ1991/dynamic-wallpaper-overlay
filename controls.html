@@ -1269,7 +1269,8 @@ void main() {
 
         function resize() {
             if (!gl) return;
-            const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+            // const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+            const dpr = window.devicePixelRatio || 1;
             const w = Math.round(window.innerWidth * dpr);
             const h = Math.round(window.innerHeight * dpr);
             if (canvas.width !== w || canvas.height !== h) {
