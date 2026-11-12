@@ -320,7 +320,35 @@
     <script>
         const LATITUDE = 21.0285;
         const LONGITUDE = 105.8542;
-        const WEATHER_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
+        const WEATHER_UPDATE_INTERVAL_MINUTES = 10;
+
+        const SHOW_HUD = true;
+        const SCALE_MODE = 0;
+
+        const TIME_MODE = 0;
+        const MANUAL_HOUR = 12.0;
+
+        const CLOUD_MODE = 0;
+        const MANUAL_CLOUD = 0.50;
+
+        const RAIN_MODE = 0;
+        const MANUAL_RAIN = 0.0;
+
+        const WIND_MODE = 0;
+        const MANUAL_WIND_SPEED_KMH = 10.0;
+        const MANUAL_WIND_DEG = 45.0;
+
+        const MIST_MODE = 0;
+        const MANUAL_MIST = 0.0;
+
+        const MOON_BOOST = 1.0;
+        const CAUSTIC_BOOST = 1.0;
+        const RAY_BOOST = 1.0;
+        const GLINT_BOOST = 1.0;
+        const STAR_BOOST = 1.0;
+        const RIPPLE_BOOST = 1.0;
+
+        const WEATHER_UPDATE_INTERVAL_MS = WEATHER_UPDATE_INTERVAL_MINUTES * 60 * 1000;
 
         function getAstronomicalMoonPhase(date = new Date()) {
             const SYNODIC_MONTH_MS = 29.530588853 * 86400000;
@@ -370,27 +398,27 @@
             return seconds / 86400.0;
         }
 
-        let isHudVisible = true;
+        let isHudVisible = SHOW_HUD;
 
         let state = {
-            timeMode: 0,
-            manualHour: 12.0,
-            cloudMode: 0,
-            manualCloud: 0.50,
-            rainMode: 0,
-            manualRain: 0.0,
-            windMode: 0,
-            manualWindSpeed: 0.15,
-            manualWindDeg: 45.0,
-            mistMode: 0,
-            manualMist: 0.0,
-            moonBoost: 1.0,
-            causticBoost: 1.0,
-            rayBoost: 1.0,
-            glintBoost: 1.0,
-            starBoost: 1.0,
-            rippleBoost: 1.0,
-            scaleMode: 0
+            timeMode: TIME_MODE,
+            manualHour: MANUAL_HOUR,
+            cloudMode: CLOUD_MODE,
+            manualCloud: MANUAL_CLOUD,
+            rainMode: RAIN_MODE,
+            manualRain: Math.min(MANUAL_RAIN / 3.0, 20.0 / 3.0),
+            windMode: WIND_MODE,
+            manualWindSpeed: Math.max(0.08, Math.min(0.35, MANUAL_WIND_SPEED_KMH / 50.0)),
+            manualWindDeg: MANUAL_WIND_DEG,
+            mistMode: MIST_MODE,
+            manualMist: MANUAL_MIST,
+            moonBoost: MOON_BOOST,
+            causticBoost: CAUSTIC_BOOST,
+            rayBoost: RAY_BOOST,
+            glintBoost: GLINT_BOOST,
+            starBoost: STAR_BOOST,
+            rippleBoost: RIPPLE_BOOST,
+            scaleMode: SCALE_MODE
         };
 
         let targetWeather = {
@@ -414,13 +442,13 @@
             sunriseHour: 6.0,
             sunsetHour: 18.0,
             moonPhase: getAstronomicalMoonPhase(),
-            mistOverride: 0.0,
-            moonBoost: 1.0,
-            causticBoost: 1.0,
-            rayBoost: 1.0,
-            glintBoost: 1.0,
-            starBoost: 1.0,
-            rippleBoost: 1.0
+            mistOverride: MANUAL_MIST,
+            moonBoost: MOON_BOOST,
+            causticBoost: CAUSTIC_BOOST,
+            rayBoost: RAY_BOOST,
+            glintBoost: GLINT_BOOST,
+            starBoost: STAR_BOOST,
+            rippleBoost: RIPPLE_BOOST
         };
 
         const canvas = document.getElementById("glcanvas");
@@ -764,7 +792,7 @@ float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
 }
 
 float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
-    if (causticMask <= 0.005 || uv.y > 0.72 || uv.x < 0.18 || uv.x > 0.82) return 0.0;
+    if (causticMask <= 0.005) return 0.0;
 
     vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * 16.0;
     vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32), 2048.0);
@@ -1107,7 +1135,7 @@ void main() {
             uStarBoostLoc = gl.getUniformLocation(program, "u_starBoost");
             uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
 
-            gl.uniform1i(uScaleModeLoc, 0);
+            gl.uniform1i(uScaleModeLoc, state.scaleMode);
             gl.uniform1f(uCausticBoostLoc, state.causticBoost);
             gl.uniform1f(uRayBoostLoc, state.rayBoost);
             gl.uniform1f(uGlintBoostLoc, state.glintBoost);
@@ -1130,7 +1158,7 @@ void main() {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0]));
 
             maskFBO = gl.createFramebuffer();
 
@@ -1148,7 +1176,7 @@ void main() {
             const bakeH = Math.max(1, Math.round(h * 0.5));
 
             gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bakeW, bakeH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, bakeW, bakeH, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, maskFBO);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, maskTexture, 0);
@@ -1563,6 +1591,55 @@ void main() {
         setupBoostSlider("slider-star", "val-star", "starBoost", () => uStarBoostLoc);
         setupBoostSlider("slider-ripple", "val-ripple", "rippleBoost", () => uRippleBoostLoc);
 
+        function applyInitialUiState() {
+            const hud = document.getElementById("weather-hud");
+            if (hud) {
+                hud.style.opacity = isHudVisible ? "1" : "0";
+                hud.style.pointerEvents = isHudVisible ? "auto" : "none";
+            }
+
+            if (sliderTime) sliderTime.value = state.manualHour;
+            updateTimeBadge();
+
+            if (sliderCloud) sliderCloud.value = Math.round(state.manualCloud * 100);
+            if (badgeCloudMode) badgeCloudMode.innerText = (state.cloudMode === 0) ? "API" : "Manual";
+            if (valCloud) valCloud.innerText = (state.cloudMode === 0) ? "50%" : `${Math.round(state.manualCloud * 100)}%`;
+
+            if (sliderRain) sliderRain.value = (state.rainMode === 1) ? 20 : (state.manualRain * 3.0);
+            if (badgeRainMode) badgeRainMode.innerText = (state.rainMode === 0) ? "API" : (state.rainMode === 1 ? "Heavy (20mm)" : "Manual");
+            if (valRain) {
+                const mm = (state.rainMode === 1) ? 20.0 : (state.manualRain * 3.0);
+                valRain.innerText = (state.rainMode === 0) ? "0.0 mm/h (Dry)" : `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
+            }
+
+            if (sliderWind) sliderWind.value = (state.manualWindSpeed * 50.0);
+            if (sliderWindDir) sliderWindDir.value = state.manualWindDeg;
+            if (badgeWindMode) badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+            if (valWind) valWind.innerText = `${(state.manualWindSpeed * 50.0).toFixed(1)} km/h`;
+            if (valWindDir) valWindDir.innerText = `${Math.round(state.manualWindDeg)}° (${getWindCompass(state.manualWindDeg)})`;
+
+            if (sliderMist) sliderMist.value = Math.round(state.manualMist * 100);
+            if (badgeMistMode) badgeMistMode.innerText = (state.mistMode === 0) ? "Auto" : "Manual";
+            if (valMist) valMist.innerText = `${Math.round(state.manualMist * 100)}%`;
+
+            const boosts = [
+                ["slider-moon", "val-moon", "moonBoost"],
+                ["slider-caustic", "val-caustic", "causticBoost"],
+                ["slider-ray", "val-ray", "rayBoost"],
+                ["slider-glint", "val-glint", "glintBoost"],
+                ["slider-star", "val-star", "starBoost"],
+                ["slider-ripple", "val-ripple", "rippleBoost"]
+            ];
+            for (const [sId, vId, prop] of boosts) {
+                const sl = document.getElementById(sId);
+                const vl = document.getElementById(vId);
+                const pct = Math.round(state[prop] * 100);
+                if (sl) sl.value = pct;
+                if (vl) vl.innerText = `${pct}%`;
+            }
+        }
+        applyInitialUiState();
+
         function toggleEffect(propName, sliderId, valId, uniformLocGetter) {
             if (state[propName] > 0.0) {
                 state[propName] = 0.0;
@@ -1853,7 +1930,8 @@ void main() {
             ambG = mix(ambG, ambG * 0.86, rainDim);
             ambB = mix(ambB, ambB * 0.92, rainDim);
 
-            const isFullMoonNight = Math.max(0.0, Math.min(1.0, (currentWeather.moonBoost - 1.00) / 0.60));
+            const baseMoon = (state.moonBoost > 0.001) ? (currentWeather.moonBoost / state.moonBoost) : 1.0;
+            const isFullMoonNight = Math.max(0.0, Math.min(1.0, (baseMoon - 1.00) / 0.60));
 
             const autoMist = smoothstep(sunrise - 1.2, sunrise - 0.1, currentHour) * (1.0 - smoothstep(sunrise + 0.6, sunrise + 1.8, currentHour));
             const mistOverride = (state.mistMode === 0) ? 0.0 : state.manualMist;
