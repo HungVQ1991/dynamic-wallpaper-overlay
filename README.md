@@ -19,7 +19,7 @@
 7: I tested on a 4K screen using AMD Radeon 860M iGPU and Lively Wallpaper; the wallpaper used ~10% GPU capacity, around 30MB RAM and negligible CPU usage so the wallpaper should not crash on most modern systems
 
 ---
-(Special thanks to void/Re:era(Fanbox: https://void0.fanbox.cc/ |X: https://x.com/void_ling) for the amazing artwork. Please visit her Fanbox to get her hand-drawn live wallpapers)
+(Special thanks to void/Re:era(Fanbox: https://void0.fanbox.cc/ |X: https://x.com/void_ling) for the amazing artwork)
 > **A Beautiful, Real-Time Animated Desktop Wallpaper for Windows**  
 > *Automatically mirrors the weather, sun, and moon from the real world onto your desktop with realistic rain, wind, and water lighting effects—built to run silky smooth without slowing down your computer.*
 
