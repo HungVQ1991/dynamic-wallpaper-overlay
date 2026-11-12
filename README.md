@@ -1,5 +1,15 @@
 # Dynamic Weather Wallpaper
 
+/**Note from author:**
+0: Unless there is a bug fix, this repository will be taken down in at most a week. The project is a personal project and is not intended to be published
+1: The guide that you are reading below is written by an AI agent, so while I did proofread the installation guide please read the specs and performances with a grain of salt
+2: The original shader files (index.html) is handwritten so in theory the wallpaper should not wreak havoc on the desktop, but the effect viewer (controls.html) is a makeshift AI-generated file that is derived from the original shader, so there may be visual/performance bugs while running controls.html that does not represent the final quality
+3: The wallpaper is set at 21:9 ratio for a cinematic/melancholic feel (as well as most of the other default settings). If you want to view the wallpaper in full screen, refer to the guide below
+4: If there are any modifications that you want outside of the customization settings that is present in index.html, please asks an AI agent by uploading index.html. I am only responsible for making sure that the project works on my desktop
+5: If you find a bug, refer to note 4. If the AI agent cannot fix it, please open an issue ticket
+6: I tested on a 4K screen using AMD Radeon 860M iGPU and Lively Wallpaper; the wallpaper used ~10% GPU capacity, around 30MB RAM and negligible CPU usage so the wallpaper should not crash on most modern systems
+/
+
 > **A Beautiful, Real-Time Animated Desktop Wallpaper for Windows**  
 > *Automatically mirrors the weather, sun, and moon from the real world onto your desktop with realistic rain, wind, and water lighting effects—built to run silky smooth without slowing down your computer.*
 
