@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Weather Wallpaper - Full Controls</title>
+    <script src="wallpaper.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
+        }
+
+        #weather-hud {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            max-height: calc(100vh - 32px);
+            width: 320px;
+            background: #000000;
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            border-radius: 10px;
+            padding: 14px 16px;
+            color: #e0e5f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
+            user-select: none;
+            transition: opacity 0.25s ease;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        #weather-hud::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #weather-hud::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #weather-hud::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+        }
+
+        .hud-title {
+            font-weight: bold;
+            color: #70b0ff;
+            font-size: 13px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hud-title-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hud-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffaa00;
+        }
+
+        .hud-status.connected {
+            background: #00e676;
+        }
+
+        .hud-status.error {
+            background: #ff5252;
+        }
+
+        .hud-section {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .section-header {
+            font-weight: 600;
+            color: #ffd54f;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-row {
+            margin-bottom: 8px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
+        }
+
+        .control-label {
+            color: #cfd8dc;
+            font-size: 11px;
+        }
+
+        .key-tag {
+            color: #ffd54f;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .badge-val {
+            color: #00e676;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .badge-mode {
+            color: #81d4fa;
+            font-size: 10px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #70b0ff;
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(112, 176, 255, 0.7);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="weather-hud">
+        <div class="hud-title">
+            <div class="hud-title-left">
+                <span id="status-dot" class="hud-status"></span>
+                <span id="status-text">Connecting to Open-Meteo...</span>
+            </div>
+            <span id="img-status" style="font-size: 10px; color: #81d4fa;"></span>
+        </div>
+
+        <div id="quick-info" style="font-size: 11px; color: #b0bec5; margin-bottom: 6px;">
+            <div id="cloud-info">Cloud: Loading...</div>
+            <div id="rain-info">Rain: Loading...</div>
+            <div id="wind-info">Wind: Loading...</div>
+            <div id="sun-info">Sun: Loading...</div>
+            <div id="moon-info">Moon Phase: Loading...</div>
+            <div id="time-info">Local Time: --:--:--</div>
+        </div>
+
+        <div class="hud-section">
+            <div class="section-header">
+                <span>Environment & Weather</span>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[2]</span> Time of Day:</span>
+                    <div>
+                        <span id="badge-time-mode" class="badge-mode">Real Time</span>
+                        <span id="val-time" class="badge-val">12:00</span>
+                    </div>
+                </div>
+                <input type="range" id="slider-time" min="0" max="24" step="0.1" value="12">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[6]</span> Cloud Cover:</span>
+                    <div>
+                        <span id="badge-cloud-mode" class="badge-mode">API</span>
+                        <span id="val-cloud" class="badge-val">50%</span>
+                    </div>
+                </div>
+                <input type="range" id="slider-cloud" min="0" max="100" step="1" value="50">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[1]</span> Rain Intensity:</span>
+                    <div>
+                        <span id="badge-rain-mode" class="badge-mode">API</span>
+                        <span id="val-rain" class="badge-val">0.0 mm/h (Dry)</span>
+                    </div>
+                </div>
+                <input type="range" id="slider-rain" min="0" max="20" step="0.1" value="0">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[7]</span> Wind Speed:</span>
+                    <div>
+                        <span id="badge-wind-mode" class="badge-mode">API</span>
+                        <span id="val-wind" class="badge-val">10 km/h</span>
+                    </div>
+                </div>
+                <input type="range" id="slider-wind" min="0" max="40" step="0.5" value="10">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Wind Direction:</span>
+                    <span id="val-wind-dir" class="badge-val">45° (NE)</span>
+                </div>
+                <input type="range" id="slider-wind-dir" min="0" max="360" step="5" value="45">
+            </div>
+        </div>
+
+        <div class="hud-section">
+            <div class="section-header">
+                <span>Shader Effects</span>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[5]</span> Morning Mist:</span>
+                    <div>
+                        <span id="badge-mist-mode" class="badge-mode">Auto (5h-8h)</span>
+                        <span id="val-mist" class="badge-val">0%</span>
+                    </div>
+                </div>
+                <input type="range" id="slider-mist" min="0" max="100" step="1" value="0">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[8]</span> Moonlight:</span>
+                    <span id="val-moon" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-moon" min="20" max="250" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[C]</span> Underwater Caustics:</span>
+                    <span id="val-caustic" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-caustic" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[R]</span> Sun Rays:</span>
+                    <span id="val-ray" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-ray" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[G]</span> Water Glint:</span>
+                    <span id="val-glint" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-glint" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[S]</span> Night Stars:</span>
+                    <span id="val-star" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-star" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[W]</span> Rain Ripples:</span>
+                    <span id="val-ripple" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-ripple" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[F]</span> Fireflies:</span>
+                    <span id="val-firefly" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-firefly" min="0" max="200" step="5" value="100">
+            </div>
+        </div>
+    </div>
+
+    <canvas id="glcanvas"></canvas>
+    <script>
+        const LATITUDE = 21.0285;
+        const LONGITUDE = 105.8542;
+        const TARGET_FPS = 60;
+        const MAX_DPR = 1.5;
+        const WEATHER_UPDATE_INTERVAL_MINUTES = 10;
+
+        const SHOW_HUD = true;
+        const SCALE_MODE = 0;
+
+        const TIME_MODE = 0;
+        const MANUAL_HOUR = 12.0;
+
+        const CLOUD_MODE = 0;
+        const MANUAL_CLOUD = 0.50;
+
+        const RAIN_MODE = 0;
+        const MANUAL_RAIN = 0.0;
+
+        const WIND_MODE = 0;
+        const MANUAL_WIND_SPEED_KMH = 10.0;
+        const MANUAL_WIND_DEG = 45.0;
+
+        const MIST_MODE = 0;
+        const MANUAL_MIST = 0.0;
+
+        const MOON_BOOST = 1.0;
+        const CAUSTIC_BOOST = 1.0;
+        const RAY_BOOST = 1.0;
+        const GLINT_BOOST = 1.0;
+        const STAR_BOOST = 1.0;
+        const RIPPLE_BOOST = 1.0;
+        const FIREFLY_BOOST = 1.0;
+
+        const WEATHER_UPDATE_INTERVAL_MS = WEATHER_UPDATE_INTERVAL_MINUTES * 60 * 1000;
+
+        function getAstronomicalMoonPhase(date = new Date()) {
+            const SYNODIC_MONTH_MS = 29.530588853 * 86400000;
+            const KNOWN_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0);
+            const phase = ((date.getTime() - KNOWN_NEW_MOON_MS) % SYNODIC_MONTH_MS) / SYNODIC_MONTH_MS;
+            return phase < 0 ? phase + 1.0 : phase;
+        }
+
+        function calculateMoonBoost(moonPhaseVal) {
+            const p = (moonPhaseVal !== undefined) ? moonPhaseVal : targetWeather.moonPhase;
+            const m = Math.max(0.0, Math.min(1.0, 1.0 - Math.abs(2.0 * p - 1.0)));
+            return 1.00 + m * 0.60;
+        }
+
+        function formatHour(h) {
+            const hh = Math.floor(h);
+            const mm = Math.round((h - hh) * 60);
+            return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+        }
+
+        function getMoonPhaseName(p) {
+            const m = Math.max(0.0, Math.min(1.0, 1.0 - Math.abs(2.0 * p - 1.0)));
+            if (m < 0.10) return "New Moon";
+            if (m < 0.40) return p < 0.5 ? "Waxing Crescent" : "Waning Crescent";
+            if (m < 0.65) return p < 0.5 ? "First Quarter" : "Third Quarter";
+            if (m < 0.90) return p < 0.5 ? "Waxing Gibbous" : "Waning Gibbous";
+            return "Full Moon";
+        }
+
+        function getWindCompass(deg) {
+            const val = Math.floor((deg / 22.5) + 0.5);
+            const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            return arr[(val % 16)];
+        }
+
+        function getRainDescription(mm) {
+            if (mm <= 0.05) return "Dry";
+            if (mm <= 2.5) return "Light Rain";
+            if (mm <= 10.0) return "Moderate Rain";
+            if (mm <= 20.0) return "Heavy Rain";
+            return "Violent Rain";
+        }
+
+        function calculateRealTimeOfDay() {
+            const now = new Date();
+            if (targetWeather.utcOffsetSeconds !== null && targetWeather.utcOffsetSeconds !== undefined) {
+                const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+                const targetDate = new Date(utcMs + targetWeather.utcOffsetSeconds * 1000);
+                const seconds = targetDate.getHours() * 3600 + targetDate.getMinutes() * 60 + targetDate.getSeconds() + targetDate.getMilliseconds() * 0.001;
+                return seconds / 86400.0;
+            }
+            const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() * 0.001;
+            return seconds / 86400.0;
+        }
+
+        let isHudVisible = SHOW_HUD;
+
+        let state = {
+            timeMode: TIME_MODE,
+            manualHour: MANUAL_HOUR,
+            cloudMode: CLOUD_MODE,
+            manualCloud: MANUAL_CLOUD,
+            rainMode: RAIN_MODE,
+            manualRain: Math.min(MANUAL_RAIN / 3.0, 20.0 / 3.0),
+            windMode: WIND_MODE,
+            manualWindSpeed: Math.max(0.08, Math.min(0.35, MANUAL_WIND_SPEED_KMH / 50.0)),
+            manualWindDeg: MANUAL_WIND_DEG,
+            mistMode: MIST_MODE,
+            manualMist: MANUAL_MIST,
+            moonBoost: MOON_BOOST,
+            causticBoost: CAUSTIC_BOOST,
+            rayBoost: RAY_BOOST,
+            glintBoost: GLINT_BOOST,
+            starBoost: STAR_BOOST,
+            rippleBoost: RIPPLE_BOOST,
+            fireflyBoost: FIREFLY_BOOST,
+            scaleMode: SCALE_MODE
+        };
+
+        let targetWeather = {
+            cloudDensity: 0.5,
+            rainIntensity: 0.0,
+            windSpeed: 0.15,
+            windRad: 45.0 * (Math.PI / 180.0),
+            sunriseHour: 6.0,
+            sunsetHour: 18.0,
+            moonPhase: getAstronomicalMoonPhase(),
+            utcOffsetSeconds: null
+        };
+
+        let currentWeather = {
+            timeOfDay: 0.5,
+            cloudDensity: 0.5,
+            rainIntensity: 0.0,
+            windSpeed: 0.15,
+            windRad: 45.0 * (Math.PI / 180.0),
+            sunriseHour: 6.0,
+            sunsetHour: 18.0,
+            moonPhase: getAstronomicalMoonPhase(),
+            mistOverride: MANUAL_MIST,
+            moonBoost: MOON_BOOST,
+            causticBoost: CAUSTIC_BOOST,
+            rayBoost: RAY_BOOST,
+            glintBoost: GLINT_BOOST,
+            starBoost: STAR_BOOST,
+            rippleBoost: RIPPLE_BOOST,
+            fireflyBoost: FIREFLY_BOOST
+        };
+
+        const canvas = document.getElementById("glcanvas");
+        const vsSource = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+uniform vec4 u_uvTransform;
+void main() {
+    vec2 screenUV = a_position * 0.5 + 0.5;
+    v_uv = screenUV * u_uvTransform.xy + u_uvTransform.zw;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+        const bakeVsSource = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+    v_uv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+        const bakeFsSource = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+uniform sampler2D u_texture;
+
+#define DEFAULT_IMAGE_ASPECT 2.155
+
+float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+float sdCapsule(vec2 p, vec2 a, vec2 b, float r) {
+    vec2 pa = p - a, ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - r;
+}
+
+float capsuleMask(vec2 uv, vec2 a, vec2 b, float r, float soft) {
+    vec2 S = vec2(DEFAULT_IMAGE_ASPECT, 1.0);
+    return smoothstep(0.0, soft, sdCapsule(uv * S, a * S, b * S, r));
+}
+
+float getMetalWingMask(vec2 uv) {
+    if (uv.x < 0.08 || uv.x > 0.42 || uv.y < 0.22 || uv.y > 0.74) return 1.0;
+    float m = 1.0;
+    m = min(m, capsuleMask(uv, vec2(0.12, 0.48), vec2(0.31, 0.57), 0.065, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.15, 0.63), vec2(0.33, 0.60), 0.060, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.18, 0.30), vec2(0.32, 0.51), 0.065, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.26, 0.42), vec2(0.36, 0.58), 0.075, 0.03));
+    return m;
+}
+
+float getCharacterMask(vec2 uv) {
+    if (uv.x < 0.06 || uv.x > 0.78 || uv.y < 0.15 || uv.y > 0.96) return 1.0;
+
+    float m = getMetalWingMask(uv);
+    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.37, 0.60), 0.090, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.46, 0.91), 0.045, 0.03));
+    m = min(m, capsuleMask(uv, vec2(0.37, 0.60), vec2(0.44, 0.55), 0.060, 0.04));
+    m = min(m, capsuleMask(uv, vec2(0.41, 0.66), vec2(0.50, 0.68), 0.035, 0.03));
+
+    m = min(m, capsuleMask(uv, vec2(0.37, 0.31), vec2(0.50, 0.30), 0.090, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.47, 0.42), vec2(0.58, 0.58), 0.100, 0.05));
+    m = min(m, capsuleMask(uv, vec2(0.56, 0.55), vec2(0.66, 0.32), 0.100, 0.06));
+    return m;
+}
+
+float rectSoft(vec2 uv, vec2 lo, vec2 hi, float s) {
+    vec2 a = smoothstep(lo - s, lo, uv);
+    vec2 b = 1.0 - smoothstep(hi, hi + s, uv);
+    return a.x * a.y * b.x * b.y;
+}
+
+float getReflectionZone(vec2 uv) {
+    float z = 0.0;
+    z = max(z, rectSoft(uv, vec2(0.32, 0.84), vec2(0.54, 1.00), 0.03));
+    z = max(z, rectSoft(uv, vec2(0.57, 0.74), vec2(0.75, 1.00), 0.03));
+    z = max(z, rectSoft(uv, vec2(0.76, 0.25), vec2(0.93, 1.00), 0.03));
+    return z;
+}
+
+float getTopLeftZone(vec2 uv) {
+    float xZone = 1.0 - smoothstep(0.30, 0.44, uv.x);
+    float yZone = smoothstep(0.42, 0.56, uv.y);
+    return xZone * yZone;
+}
+
+float getWaterMask(vec2 uv, vec3 baseColor, float charMask) {
+    float lum = getLuminance(baseColor);
+    float refl = getReflectionZone(uv);
+    float tl   = getTopLeftZone(uv);
+    float noMask = max(refl, tl);
+
+    float m = uv.x + 0.15 * uv.y;
+    float petalZone = 1.0 - smoothstep(0.80, 0.95, m);
+    float isPetal   = smoothstep(0.38, 0.55, lum);
+    float flowerMask = 1.0 - petalZone * isPetal * (1.0 - noMask);
+
+    float leafZone  = 1.0 - smoothstep(0.40, 0.52, uv.y);
+    float isRedLeaf = smoothstep(0.06, 0.20, baseColor.r - baseColor.b);
+    float leafMask  = 1.0 - leafZone * isRedLeaf * (1.0 - noMask);
+
+    float wm = smoothstep(0.40, 0.43, uv.x) * (1.0 - smoothstep(0.55, 0.58, uv.x))
+             * (1.0 - smoothstep(0.15, 0.19, uv.y));
+    float wmMask = 1.0 - wm;
+
+    float btmLeftFlowers = 1.0 - rectSoft(uv, vec2(-0.05, -0.05), vec2(0.23, 0.32), 0.04);
+
+    return clamp(charMask * flowerMask * leafMask * wmMask * btmLeftFlowers, 0.0, 1.0);
+}
+
+void main() {
+    vec3 rawColor = texture(u_texture, v_uv).rgb;
+    float charMask = getCharacterMask(v_uv);
+    float waterMask = getWaterMask(v_uv, rawColor, charMask);
+    float wingMask = getMetalWingMask(v_uv);
+
+    float bgLakeMask = smoothstep(0.60, 0.90, v_uv.y);
+    float regionExclusion = 1.0 - smoothstep(0.20, 0.25, v_uv.x) * (1.0 - smoothstep(0.49, 0.54, v_uv.x)) * smoothstep(0.69, 0.74, v_uv.y) * (1.0 - smoothstep(1.02, 1.07, v_uv.y));
+    float mistDepthMask = bgLakeMask * charMask * regionExclusion;
+
+    float shallowZone = smoothstep(0.14, 0.24, v_uv.x) * (1.0 - smoothstep(0.76, 0.86, v_uv.x))
+                      * smoothstep(0.04, 0.14, v_uv.y) * (1.0 - smoothstep(0.66, 0.76, v_uv.y));
+    float causticMask = shallowZone * waterMask * wingMask;
+
+    fragColor = vec4(waterMask, mistDepthMask, causticMask, charMask);
+}`;
+        const fsSource = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform vec2 u_imageResolution;
+uniform int u_scaleMode;
+uniform float u_time;
+uniform sampler2D u_texture;
+uniform sampler2D u_maskTexture;
+
+uniform float u_rainIntensity;
+uniform vec3 u_windParams;
+uniform float u_moonBoost;
+
+uniform vec3 u_ambient;
+uniform vec4 u_dayNightFactors;
+uniform vec4 u_weatherFactors;
+uniform vec4 u_mistParams;
+uniform float u_isFullMoonNight;
+
+uniform float u_causticBoost;
+uniform float u_rayBoost;
+uniform float u_glintBoost;
+uniform float u_starBoost;
+uniform float u_rippleBoost;
+uniform float u_fireflyBoost;
+
+#define DEFAULT_IMAGE_ASPECT 2.155
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(233.34, 851.73));
+    p += dot(p, p + 23.45);
+    return fract(p.x * p.y);
+}
+
+vec2 hash22(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    vec4 xs = i.x + vec4(0.0, 1.0, 0.0, 1.0);
+    vec4 ys = i.y + vec4(0.0, 0.0, 1.0, 1.0);
+
+    vec4 p0 = fract(xs * 233.34);
+    vec4 p1 = fract(ys * 851.73);
+    vec4 d = p0 * (p0 + 23.45) + p1 * (p1 + 23.45);
+    p0 += d;
+    p1 += d;
+    vec4 h = fract(p0 * p1);
+
+    return mix(mix(h.x, h.y, u.x), mix(h.z, h.w, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+    for (int i = 0; i < 3; i++) {
+        v += a * noise(p);
+        p = rot * p * 2.0;
+        a *= 0.5;
+    }
+    return v;
+}
+
+float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+vec2 getWaterRipples(vec2 uv, float rainIntensity, float time, float waterMask) {
+    if (rainIntensity <= 0.01 || waterMask <= 0.005) return vec2(0.0);
+
+    float depthProgress = clamp(uv.y * 0.75 + uv.x * 0.25, 0.0, 1.0);
+    float perspectiveScale = mix(1.35, 0.78, depthProgress);
+    float distFactor = mix(1.0, 0.5, clamp(uv.y, 0.0, 1.0));
+
+    vec2 totalNormal = vec2(0.0);
+    float gridScale = 10.8;
+    vec2 gv = uv * gridScale;
+    vec2 id = floor(gv);
+
+    mat2 rotGround = mat2(0.9492, 0.3146, -0.3146, 0.9492);
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    float cellThreshold = 0.88 - norm * 0.55;
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 cellOffset = vec2(float(x), float(y));
+            vec2 cellId = id + cellOffset;
+
+            float speedBase = 0.8 + hash21(cellId + 0.1) * 0.35;
+            float cellTime = mod(time, 256.0 / speedBase);
+            float totalProgress = cellTime * speedBase + hash21(cellId + 0.45) * 100.0;
+
+            float cycleIndex = floor(totalProgress);
+            float dropTime = fract(totalProgress);
+
+            float cyc = mod(cycleIndex, 256.0);
+            vec2 dynamicSeed = cellId + vec2(cyc * 17.13, cyc * 31.41);
+
+            if (hash21(dynamicSeed) > cellThreshold) {
+                vec2 dropPos = hash22(dynamicSeed + 0.73) * 0.7 + 0.15;
+                vec2 p = gv - (cellId + dropPos);
+
+                p = rotGround * p;
+                p.y *= perspectiveScale;
+
+                float maxRadius = mix(0.48, 0.75, hash21(dynamicSeed + 0.2)) * distFactor;
+                float waveRadius = dropTime * maxRadius;
+
+                float distSq = dot(p, p);
+                if (distSq < waveRadius * waveRadius && distSq > 0.00001) {
+                    float dist = sqrt(distSq);
+                    float waveDist = waveRadius - dist;
+                    float waveWidth = 0.075 * distFactor;
+                    float rippleProfile = sin(waveDist / waveWidth * 6.2831853);
+                    float edgeFade = smoothstep(0.0, 0.03 * distFactor, waveDist) * (1.0 - smoothstep(waveWidth * 1.5, waveWidth * 2.5, waveDist));
+                    float xDrop = 1.0 - dropTime;
+                    float lifeFade = xDrop * (xDrop * 0.5 + 0.5);
+                    float strength = rippleProfile * edgeFade * lifeFade;
+
+                    vec2 grad = p / dist;
+                    totalNormal += grad * strength * (0.015 * distFactor);
+                }
+            }
+        }
+    }
+    return totalNormal * (waterMask * (norm * 0.35 + 0.03));
+}
+
+float getForegroundRain(vec2 uv, float rainIntensity, float time) {
+    if (rainIntensity <= 0.01) return 0.0;
+
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    vec2 rainUV = uv;
+    rainUV.x -= (1.0 - rainUV.y) * u_windParams.z;
+
+    float t = mod(time, 256.0);
+    float streak = 0.0;
+
+    float prob1 = min(norm * 0.165, 0.165);
+    vec2 st1 = vec2(rainUV.x * 41.0, rainUV.y * 1.4 + t * 19.0);
+    vec2 id1 = floor(st1);
+    vec2 gv1 = fract(st1);
+    float h1 = hash21(id1 + vec2(7.8, 3.4));
+    if (h1 < prob1) {
+        float dropX = hash21(id1 + vec2(13.5, 47.1)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id1 + vec2(3.1, 8.9)) - 0.5) * 0.05;
+        float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
+        float dy = gv1.y;
+        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    vec2 st2 = vec2(rainUV.x * 59.0 + 17.3, rainUV.y * 1.8 + t * 25.0 + 31.5);
+    vec2 id2 = floor(st2);
+    vec2 gv2 = fract(st2);
+    float h2 = hash21(id2 + vec2(19.1, 63.7));
+    if (h2 < prob1) {
+        float dropX = hash21(id2 + vec2(81.2, 23.9)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id2 + vec2(15.4, 71.2)) - 0.5) * 0.05;
+        float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
+        float dy = gv2.y;
+        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    return streak * 0.07;
+}
+
+float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
+    if (rainIntensity <= 0.01) return 0.0;
+    float waterDepthMask = smoothstep(0.35, 0.65, uv.y);
+    if (waterDepthMask <= 0.01) return 0.0;
+
+    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+    vec2 rainUV = uv;
+    rainUV.x -= (1.0 - rainUV.y) * (u_windParams.z * 0.85);
+
+    float t = mod(time, 256.0);
+    float streak = 0.0;
+
+    float prob2 = min(norm * 0.270, 0.270);
+    vec2 st1 = vec2(rainUV.x * 79.0, rainUV.y * 2.2 + t * 22.0);
+    vec2 id1 = floor(st1);
+    vec2 gv1 = fract(st1);
+    float h1 = hash21(id1 + vec2(1.2, 9.8));
+    if (h1 < prob2) {
+        float dropX = hash21(id1 + vec2(51.3, 17.4)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id1 + vec2(5.4, 2.1)) - 0.5) * 0.04;
+        float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
+        float dy = gv1.y;
+        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    vec2 st2 = vec2(rainUV.x * 113.0 + 29.1, rainUV.y * 2.7 + t * 28.0 + 47.3);
+    vec2 id2 = floor(st2);
+    vec2 gv2 = fract(st2);
+    float h2 = hash21(id2 + vec2(37.5, 82.3));
+    if (h2 < prob2) {
+        float dropX = hash21(id2 + vec2(93.8, 64.1)) * 0.74 + 0.13;
+        float dropTilt = (hash21(id2 + vec2(11.7, 43.6)) - 0.5) * 0.04;
+        float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
+        float dy = gv2.y;
+        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+    }
+
+    return streak * 0.038 * waterDepthMask;
+}
+
+float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
+    if (causticMask <= 0.005) return 0.0;
+
+    vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * 16.0;
+    vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32), 2048.0);
+    vec2 t2 = mod(vec2(-animTime * 0.38, animTime * 0.41), 2048.0);
+
+    float n1 = abs(noise(p + t1) - 0.5);
+    float n2 = abs(noise(p * 1.35 + vec2(4.2, 8.7) + t2) - 0.5);
+    float ridge1 = 1.0 - smoothstep(0.0, 0.11, n1);
+    float ridge2 = 1.0 - smoothstep(0.0, 0.11, n2);
+
+    return pow(ridge1 * ridge2, 1.35) * causticMask;
+}
+
+vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay, float dawnFactor, float sunsetFactor, float cloudCover, float normRain, float origLum) {
+    float rayWindow = max(dawnRay, sunsetRay) * clamp(1.0 - cloudCover, 0.0, 1.0) * (1.0 - normRain);
+    if (rayWindow <= 0.01) return vec3(0.0);
+
+    vec2 rel = uv - vec2(-0.05, 1.05);
+    float beamCoord = rel.x * 0.78 + rel.y * 0.62;
+    float distFromCorner = length(rel * vec2(0.65, 1.0));
+    float radialFade = (1.0 - smoothstep(0.15, 1.35, distFromCorner)) * smoothstep(0.10, 0.85, uv.y);
+    if (radialFade <= 0.005) return vec3(0.0);
+
+    float shift = mod(animTime * 0.035, 2048.0);
+    float ray1 = noise(vec2(beamCoord * 11.0 + shift, uv.y * 0.6));
+    float ray2 = noise(vec2(beamCoord * 23.0 - shift * 0.7, uv.y * 0.9 + 5.3));
+    float shafts = smoothstep(0.45, 0.88, ray1 * 0.65 + ray2 * 0.35);
+
+    vec3 dawnRayCol   = vec3(1.00, 0.90, 0.78);
+    vec3 sunsetRayCol = vec3(1.00, 0.60, 0.35);
+    vec3 rayCol = mix(dawnRayCol, sunsetRayCol, sunsetFactor / (dawnFactor + sunsetFactor + 0.0001));
+
+    float antiClip = 1.0 - origLum * 0.55;
+    return rayCol * (shafts * radialFade * rayWindow * antiClip * 0.22);
+}
+
+vec3 getFireflies(vec2 uv, float animTime, float fireflyActive, float boost, float charMask, sampler2D maskTex) {
+    if (fireflyActive <= 0.005 || boost <= 0.005 || charMask <= 0.01) return vec3(0.0);
+    if (uv.y < 0.02 || uv.y > 0.96) return vec3(0.0);
+
+    vec2 fp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 36.0;
+    vec2 cell = floor(fp);
+    float h = hash21(cell);
+
+    if (h < 0.988) return vec3(0.0);
+
+    vec2 basePos = hash22(cell + vec2(1.7, 8.3)) - 0.5;
+    vec2 flight = vec2(
+        sin(animTime * 0.35 + hash21(cell + 11.3) * 6.2831853),
+        cos(animTime * 0.28 + hash21(cell + 23.7) * 6.2831853)
+    ) * 0.20;
+    flight.x += sin(animTime * 0.15 + hash21(cell + 37.1) * 6.2831853) * 0.06;
+
+    vec2 center = 0.5 + basePos * 0.20 + flight;
+    vec2 centerUV = vec2((cell.x + center.x) / DEFAULT_IMAGE_ASPECT, cell.y + center.y) / 36.0;
+    if (centerUV.y < 0.04 || centerUV.y > 0.94) return vec3(0.0);
+
+    float centerCharMask = textureLod(maskTex, centerUV, 0.0).a;
+    if (centerCharMask < 0.60) return vec3(0.0);
+
+    float cycleDuration = 6.5 + hash21(cell + 7.1) * 3.5;
+    float flashDuration = 2.2 + hash21(cell + 19.4) * 0.8;
+    float cycleTime = mod(animTime + hash21(cell + 31.8) * 100.0, cycleDuration);
+
+    if (cycleTime >= flashDuration) return vec3(0.0);
+
+    float progress = cycleTime / flashDuration;
+    float envelope = smoothstep(0.0, 1.0, sin(progress * 3.14159265));
+
+    float fSpeed1 = 8.0 + hash21(cell + 13.7) * 7.0;
+    float fSpeed2 = 14.0 + hash21(cell + 29.1) * 9.0;
+    float fPhase = hash21(cell + 43.5) * 6.2831853;
+    float rawFlicker = sin(animTime * fSpeed1 + fPhase) * 0.60 + cos(animTime * fSpeed2 + fPhase * 1.5) * 0.40;
+    float flicker = 0.45 + 0.55 * pow(clamp(rawFlicker * 0.5 + 0.5, 0.0, 1.0), 1.6);
+    float pulse = envelope * flicker;
+
+    float sizeRand = 0.85 + hash21(cell + 4.9) * 0.30;
+    vec2 fRel = fract(fp) - center;
+    float r = length(fRel);
+
+    float core = 1.0 - smoothstep(0.0, 0.042 * sizeRand, r);
+    float halo = 1.0 - smoothstep(0.0, 0.132 * sizeRand, r);
+    float shape = core * 1.5 + halo * 0.60;
+
+    vec3 fireflyColor = mix(vec3(0.85, 0.95, 0.40), vec3(1.00, 0.84, 0.42), hash21(cell + 9.3));
+    fireflyColor = mix(fireflyColor, vec3(1.00, 1.00, 0.92), core);
+
+    return fireflyColor * (shape * pulse * 1.60 * fireflyActive * boost * smoothstep(0.40, 0.90, charMask));
+}
+
+void main() {
+    vec2 uv = v_uv;
+
+    if (u_scaleMode == 0 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    float imageAspect = (u_imageResolution.y > 0.0) ? (u_imageResolution.x / u_imageResolution.y) : DEFAULT_IMAGE_ASPECT;
+    float animTime = mod(u_time, 86400.0);
+    float iTime = u_time;
+
+    float dayFactor = u_dayNightFactors.x;
+    float nightFactor = u_dayNightFactors.y;
+    float dawnFactor = u_dayNightFactors.z;
+    float sunsetFactor = u_dayNightFactors.w;
+
+    float normRain = u_weatherFactors.x;
+    float finalCloudCover = u_weatherFactors.y;
+    float dawnRay = u_weatherFactors.z;
+    float sunsetRay = u_weatherFactors.w;
+
+    vec3 mistColor = u_mistParams.rgb;
+    float morningMistWindow = u_mistParams.a;
+
+    vec3 ambient = u_ambient;
+    float isFullMoonNight = u_isFullMoonNight;
+    float moonBoost = u_moonBoost;
+    float rainIntensity = u_rainIntensity;
+
+    vec4 maskData = texture(u_maskTexture, uv);
+    float waterMask = maskData.r;
+    float mistDepthMask = maskData.g;
+    float causticMask = maskData.b;
+    float charMask = maskData.a;
+
+    vec2 rippleOffset = getWaterRipples(uv, rainIntensity, iTime, waterMask) * u_rippleBoost;
+    vec2 distortedUV = clamp(uv + rippleOffset, 0.0, 1.0);
+
+    vec3 baseColor = texture(u_texture, distortedUV).rgb;
+    float origLum = getLuminance(baseColor);
+
+    float effectiveCloudFactor = 1.0;
+    if (dayFactor > 0.01) {
+        vec2 cloudUV = vec2(uv.x * imageAspect, uv.y) * 1.25 + u_windParams.xy;
+
+        float cloudNoise = fbm(cloudUV);
+        float cloudThreshold = mix(0.62, 0.30, finalCloudCover);
+        float cloudMask = smoothstep(cloudThreshold, cloudThreshold + 0.18, cloudNoise);
+
+        float cloudDimming = mix(0.12, 0.25, finalCloudCover);
+        float rawCloudFactor = mix(1.0, 1.0 - cloudDimming, cloudMask);
+        effectiveCloudFactor = mix(1.0, rawCloudFactor, dayFactor);
+    }
+
+    vec3 nightProcessed = pow(baseColor, vec3(1.0 + nightFactor * 0.30));
+    vec3 color = mix(nightProcessed, baseColor, dayFactor) * ambient;
+    color *= effectiveCloudFactor;
+
+    if (normRain < 0.65 && causticMask > 0.005) {
+        float sunVisibility = smoothstep(0.20, 0.55, dayFactor) * (1.0 - finalCloudCover * 0.65) * (1.0 - normRain);
+        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
+        float moonVisibility = moonEmerge * (1.0 - finalCloudCover * 0.70) * (1.0 - normRain * 0.65);
+
+        float dayCausticWeight = max(0.0, sunVisibility);
+        float nightCausticWeight = max(0.0, moonVisibility) * moonBoost;
+
+        if (dayCausticWeight > 0.001 || nightCausticWeight > 0.001) {
+            float caustics = getUnderwaterCaustics(distortedUV, animTime, causticMask);
+            if (dayCausticWeight > 0.001) {
+                vec3 dayCausticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
+                color += dayCausticTint * (caustics * 0.22 * dayCausticWeight * u_causticBoost);
+            }
+            if (nightCausticWeight > 0.001) {
+                vec3 nightCausticTint = mix(vec3(0.48, 0.72, 1.00), vec3(0.65, 0.86, 1.15), isFullMoonNight);
+                color += nightCausticTint * (caustics * 0.18 * nightCausticWeight * u_causticBoost);
+            }
+        }
+    }
+
+    color += getCrepuscularRays(uv, animTime, dawnRay, sunsetRay, dawnFactor, sunsetFactor, finalCloudCover, normRain, origLum) * u_rayBoost;
+
+    if (morningMistWindow > 0.01 && mistDepthMask > 0.01) {
+        vec2 mistUV = vec2(uv.x * imageAspect, uv.y) * vec2(1.0, 2.5) + vec2(mod(animTime * 0.03, 2048.0), 0.0);
+        float mistNoise = fbm(mistUV);
+        float mistDensity = mistNoise * mistDepthMask * morningMistWindow;
+        color = mix(color, mistColor, mistDensity * 0.65);
+    }
+
+    if (nightFactor > 0.01) {
+        vec2 moonCenter = vec2(0.50, 0.78);
+        float moonDist = length((uv - moonCenter) * vec2(1.2, 1.0));
+        float moonBeam = 1.0 - smoothstep(0.1, 0.9, moonDist);
+        vec3 moonColor = vec3(0.55, 0.78, 1.05);
+
+        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
+
+        color += moonColor * (moonBeam * 0.14 * moonBoost) * moonEmerge * (1.0 - normRain * 0.50);
+        color += moonColor * pow(origLum, 2.0) * (0.30 * moonBoost) * moonEmerge;
+
+        vec2 waterWaveUV = uv * 14.0 + mod(vec2(animTime * 0.12, animTime * 0.07), 2048.0);
+        float waterGlimmer = smoothstep(0.42, 0.78, noise(waterWaveUV));
+        color += moonColor * (waterGlimmer * pow(origLum, 2.5) * (0.40 * moonBoost)) * moonEmerge;
+    }
+
+    float fgRain = getForegroundRain(uv, rainIntensity, iTime);
+    float bgRain = getBackgroundRain(uv, rainIntensity, iTime);
+    color += mix(vec3(1.0), vec3(0.88, 0.94, 1.0), nightFactor) * (fgRain + bgRain) * mix(0.9, 1.0, nightFactor);
+
+    float gray = getLuminance(color);
+    float desatAmount = mix(0.30, 0.20, isFullMoonNight);
+    color = mix(color, vec3(gray), nightFactor * desatAmount);
+
+    if (dayFactor > 0.20) {
+        vec2 gp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 60.0 + mod(vec2(animTime * 0.30, animTime * 0.20), 2048.0);
+        float g = smoothstep(0.82, 0.95, noise(gp))
+                * smoothstep(0.82, 0.95, noise(gp * 1.7 + 9.0 + mod(animTime * 0.50, 2048.0)));
+        vec3 glintCol = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.75, 0.50), sunsetFactor);
+        color += glintCol * g * 0.50 * dayFactor
+                * (1.0 - finalCloudCover * 0.60) * (1.0 - normRain) * waterMask * u_glintBoost;
+    }
+
+    if (nightFactor > 0.30 && finalCloudCover < 1.0) {
+        vec2 sp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 90.0 + rippleOffset * 80.0;
+        vec2 cell = floor(sp);
+        float h = hash21(cell);
+
+        if (h > 0.985) {
+            vec2 f = fract(sp) - 0.5 - (hash22(cell) - 0.5) * 0.5;
+            float r = length(f);
+
+            float speed1 = 2.2 + hash21(cell + vec2(3.1, 7.4)) * 3.6;
+            float speed2 = 1.0 + hash21(cell + vec2(8.9, 1.7)) * 2.8;
+            float phase1 = hash21(cell + vec2(5.5, 2.3)) * 6.2831853;
+            float phase2 = hash21(cell + vec2(1.2, 9.6)) * 6.2831853;
+
+            float s1 = sin(mod(iTime * speed1 + phase1, 6.2831853));
+            float s2 = sin(mod(iTime * speed2 + phase2, 6.2831853));
+            float rawTwinkle = s1 * 0.60 + s2 * 0.40;
+
+            float twinkleBase = clamp(rawTwinkle * 0.5 + 0.5, 0.0, 1.0);
+            float twinkle = 0.15 + 0.85 * pow(twinkleBase, 2.4);
+
+            float sizeRandom = 0.85 + hash21(cell + vec2(4.7, 6.2)) * 0.40;
+            float core = 1.0 - smoothstep(0.0, 0.07 * sizeRandom, r);
+            float halo = 1.0 - smoothstep(0.0, 0.22 * sizeRandom, r);
+
+            float flare = pow(twinkleBase, 6.0) * 0.70;
+            float starShape = (core * 1.5 + halo * 0.5 + flare * core) * twinkle;
+
+            vec3 starColor = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 1.0, 1.0), core);
+            color += starColor * (starShape * 1.50 * nightFactor * u_starBoost)
+                   * waterMask * clamp(1.0 - finalCloudCover, 0.0, 1.0);
+        }
+    }
+
+    float fireflyActive = nightFactor * mix(0.55, 1.00, finalCloudCover) * (1.0 - normRain * 0.70);
+    color += getFireflies(uv, animTime, fireflyActive, u_fireflyBoost, charMask, u_maskTexture);
+
+    vec3 excess = max(vec3(0.0), color - 0.82);
+    color += excess * excess * 0.45;
+
+    fragColor = vec4(color, 1.0);
+}`;
+
+        function createShader(glContext, type, source) {
+            const shader = glContext.createShader(type);
+            glContext.shaderSource(shader, source);
+            glContext.compileShader(shader);
+            if (!glContext.getShaderParameter(shader, glContext.COMPILE_STATUS)) {
+                console.error("Shader compile error:", glContext.getShaderInfoLog(shader));
+                glContext.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        let gl = null;
+        let program = null;
+        let bakeProgram = null;
+        let positionBuffer = null;
+        let texture = null;
+        let maskTexture = null;
+        let maskFBO = null;
+
+        let bakePositionLoc = null;
+        let bakeTexLoc = null;
+
+        let uImgResLoc = null;
+        let uUvTransformLoc = null;
+        let uScaleModeLoc = null;
+        let uTimeLoc = null;
+        let uTextureLoc = null;
+        let uMaskTextureLoc = null;
+
+        let uRainIntensityLoc = null;
+        let uWindParamsLoc = null;
+        let uMoonBoostLoc = null;
+
+        let uAmbientLoc = null;
+        let uDayNightFactorsLoc = null;
+        let uWeatherFactorsLoc = null;
+        let uMistParamsLoc = null;
+        let uIsFullMoonNightLoc = null;
+
+        let uCausticBoostLoc = null;
+        let uRayBoostLoc = null;
+        let uGlintBoostLoc = null;
+        let uStarBoostLoc = null;
+        let uRippleBoostLoc = null;
+        let uFireflyBoostLoc = null;
+
+        let imgWidth = 3107;
+        let imgHeight = 1440;
+        const uvTransform = new Float32Array([1, 1, 0, 0]);
+
+        function updateUvTransform() {
+            if (!gl || !uUvTransformLoc) return;
+            const screenAspect = canvas.width / canvas.height;
+            const imageAspect = (imgHeight > 0) ? (imgWidth / imgHeight) : 2.155;
+            let sx = 1.0, sy = 1.0, ox = 0.0, oy = 0.0;
+            const mode = (typeof state !== 'undefined' && state.scaleMode !== undefined) ? state.scaleMode : 0;
+            if (mode === 0) {
+                if (screenAspect > imageAspect) {
+                    const s = imageAspect / screenAspect;
+                    sx = 1.0 / s;
+                    ox = 0.5 - 0.5 / s;
+                } else {
+                    const s = screenAspect / imageAspect;
+                    sy = 1.0 / s;
+                    oy = 0.5 - 0.5 / s;
+                }
+            } else {
+                if (screenAspect > imageAspect) {
+                    const s = screenAspect / imageAspect;
+                    sy = 1.0 / s;
+                    oy = 0.5 - 0.5 / s;
+                } else {
+                    const s = imageAspect / screenAspect;
+                    sx = 1.0 / s;
+                    ox = 0.5 - 0.5 / s;
+                }
+            }
+            uvTransform[0] = sx;
+            uvTransform[1] = sy;
+            uvTransform[2] = ox;
+            uvTransform[3] = oy;
+            gl.useProgram(program);
+            gl.uniform4fv(uUvTransformLoc, uvTransform);
+        }
+
+        function initWebGLResources() {
+            gl = canvas.getContext("webgl2", { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: "high-performance" });
+            if (!gl) {
+                alert("Browser does not support WebGL 2.0!");
+                return false;
+            }
+
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            if (!vs || !fs) return false;
+            program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Shader link error:", gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                program = null;
+                return false;
+            }
+
+            const bakeVs = createShader(gl, gl.VERTEX_SHADER, bakeVsSource);
+            const bakeFs = createShader(gl, gl.FRAGMENT_SHADER, bakeFsSource);
+            if (!bakeVs || !bakeFs) return false;
+            bakeProgram = gl.createProgram();
+            gl.attachShader(bakeProgram, bakeVs);
+            gl.attachShader(bakeProgram, bakeFs);
+            gl.linkProgram(bakeProgram);
+
+            if (!gl.getProgramParameter(bakeProgram, gl.LINK_STATUS)) {
+                console.error("Bake link error:", gl.getProgramInfoLog(bakeProgram));
+                gl.deleteProgram(bakeProgram);
+                bakeProgram = null;
+                return false;
+            }
+
+            gl.useProgram(program);
+
+            positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1,
+                 3, -1,
+                -1,  3
+            ]), gl.STATIC_DRAW);
+
+            bakePositionLoc = gl.getAttribLocation(bakeProgram, "a_position");
+            bakeTexLoc = gl.getUniformLocation(bakeProgram, "u_texture");
+
+            const positionLoc = gl.getAttribLocation(program, "a_position");
+            gl.enableVertexAttribArray(positionLoc);
+            gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+            uImgResLoc = gl.getUniformLocation(program, "u_imageResolution");
+            uUvTransformLoc = gl.getUniformLocation(program, "u_uvTransform");
+            uScaleModeLoc = gl.getUniformLocation(program, "u_scaleMode");
+            uTimeLoc = gl.getUniformLocation(program, "u_time");
+            uTextureLoc = gl.getUniformLocation(program, "u_texture");
+            uMaskTextureLoc = gl.getUniformLocation(program, "u_maskTexture");
+
+            uRainIntensityLoc = gl.getUniformLocation(program, "u_rainIntensity");
+            uWindParamsLoc = gl.getUniformLocation(program, "u_windParams");
+            uMoonBoostLoc = gl.getUniformLocation(program, "u_moonBoost");
+
+            uAmbientLoc = gl.getUniformLocation(program, "u_ambient");
+            uDayNightFactorsLoc = gl.getUniformLocation(program, "u_dayNightFactors");
+            uWeatherFactorsLoc = gl.getUniformLocation(program, "u_weatherFactors");
+            uMistParamsLoc = gl.getUniformLocation(program, "u_mistParams");
+            uIsFullMoonNightLoc = gl.getUniformLocation(program, "u_isFullMoonNight");
+
+            uCausticBoostLoc = gl.getUniformLocation(program, "u_causticBoost");
+            uRayBoostLoc = gl.getUniformLocation(program, "u_rayBoost");
+            uGlintBoostLoc = gl.getUniformLocation(program, "u_glintBoost");
+            uStarBoostLoc = gl.getUniformLocation(program, "u_starBoost");
+            uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
+            uFireflyBoostLoc = gl.getUniformLocation(program, "u_fireflyBoost");
+
+            gl.uniform1i(uScaleModeLoc, state.scaleMode);
+            gl.uniform1f(uCausticBoostLoc, state.causticBoost);
+            gl.uniform1f(uRayBoostLoc, state.rayBoost);
+            gl.uniform1f(uGlintBoostLoc, state.glintBoost);
+            gl.uniform1f(uStarBoostLoc, state.starBoost);
+            gl.uniform1f(uRippleBoostLoc, state.rippleBoost);
+            gl.uniform1f(uFireflyBoostLoc, state.fireflyBoost);
+
+            texture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([15, 20, 35, 255]));
+
+            maskTexture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+
+            maskFBO = gl.createFramebuffer();
+
+            gl.uniform1i(uTextureLoc, 0);
+            gl.uniform1i(uMaskTextureLoc, 1);
+
+            return true;
+        }
+
+        initWebGLResources();
+
+        function bakeMasks(w, h) {
+            if (!gl || !bakeProgram || !maskFBO || !maskTexture) return;
+            const bakeW = Math.max(1, Math.round(w * 0.5));
+            const bakeH = Math.max(1, Math.round(h * 0.5));
+
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bakeW, bakeH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, maskFBO);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, maskTexture, 0);
+
+            const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error("Mask FBO incomplete: " + status);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                return;
+            }
+
+            gl.viewport(0, 0, bakeW, bakeH);
+            gl.useProgram(bakeProgram);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(bakePositionLoc);
+            gl.vertexAttribPointer(bakePositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.uniform1i(bakeTexLoc, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            const posLoc = gl.getAttribLocation(program, "a_position");
+            gl.useProgram(program);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        function applyImageToTexture(img) {
+            if (!gl || !texture) return;
+            imgWidth = img.naturalWidth || img.width || 3107;
+            imgHeight = img.naturalHeight || img.height || 1440;
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            if (uImgResLoc) {
+                gl.useProgram(program);
+                gl.uniform2f(uImgResLoc, imgWidth, imgHeight);
+            }
+            bakeMasks(imgWidth, imgHeight);
+            updateUvTransform();
+            const badge = document.getElementById("img-status");
+            if (badge) badge.innerText = `(${imgWidth}x${imgHeight})`;
+        }
+
+        function loadFromDataUrl(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                applyImageToTexture(img);
+            };
+            img.src = dataUrl;
+        }
+
+        function initWallpaperImage() {
+            if (window.DEFAULT_WALLPAPER) {
+                loadFromDataUrl(window.DEFAULT_WALLPAPER);
+                return;
+            }
+
+            try {
+                const saved = localStorage.getItem("weather_wallpaper_custom");
+                if (saved) {
+                    loadFromDataUrl(saved);
+                    return;
+                }
+            } catch (e) { }
+
+            const img = new Image();
+            img.onload = () => {
+                applyImageToTexture(img);
+            };
+            img.onerror = () => {
+                const badge = document.getElementById("img-status");
+                if (badge) badge.innerText = "(Image Load Error)";
+            };
+            img.src = "wallpaper.jpg";
+        }
+
+        initWallpaperImage();
+
+        function resize() {
+            if (!gl) return;
+            const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+            const w = Math.round(window.innerWidth * dpr);
+            const h = Math.round(window.innerHeight * dpr);
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+                gl.viewport(0, 0, w, h);
+                updateUvTransform();
+            }
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        let hasInitializedWeather = false;
+
+        async function updateWeather() {
+            const statusDot = document.getElementById("status-dot");
+            const statusText = document.getElementById("status-text");
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=precipitation,rain,cloud_cover,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+
+                if (data.utc_offset_seconds !== undefined) {
+                    targetWeather.utcOffsetSeconds = data.utc_offset_seconds;
+                }
+
+                const cloudPct = (data.current && data.current.cloud_cover !== undefined) ? data.current.cloud_cover : 50;
+                targetWeather.cloudDensity = Math.max(0.0, Math.min(1.0, cloudPct / 100.0));
+
+                const rainMm = (data.current && (data.current.precipitation !== undefined ? data.current.precipitation : (data.current.rain !== undefined ? data.current.rain : 0.0))) || 0.0;
+                targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
+
+                const speedKmh = (data.current && data.current.wind_speed_10m !== undefined) ? data.current.wind_speed_10m : 5.0;
+                targetWeather.windSpeed = Math.max(0.08, Math.min(0.35, speedKmh / 50.0));
+                const windDeg = (data.current && data.current.wind_direction_10m !== undefined) ? data.current.wind_direction_10m : 45.0;
+                targetWeather.windRad = windDeg * (Math.PI / 180.0);
+
+                targetWeather.moonPhase = getAstronomicalMoonPhase();
+
+                if (data.daily) {
+                    const now = new Date();
+                    const y = now.getFullYear();
+                    const m = String(now.getMonth() + 1).padStart(2, "0");
+                    const d = String(now.getDate()).padStart(2, "0");
+                    const dateKey = `${y}-${m}-${d}`;
+                    let dayIdx = 0;
+                    if (data.daily.time) {
+                        const idx = data.daily.time.indexOf(dateKey);
+                        if (idx !== -1) dayIdx = idx;
+                    }
+                    if (data.daily.sunrise && data.daily.sunrise[dayIdx]) {
+                        const parts = data.daily.sunrise[dayIdx].split("T")[1].split(":");
+                        targetWeather.sunriseHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                    }
+                    if (data.daily.sunset && data.daily.sunset[dayIdx]) {
+                        const parts = data.daily.sunset[dayIdx].split("T")[1].split(":");
+                        targetWeather.sunsetHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                    }
+                }
+
+                if (!hasInitializedWeather) {
+                    currentWeather.cloudDensity = targetWeather.cloudDensity;
+                    currentWeather.rainIntensity = targetWeather.rainIntensity;
+                    currentWeather.windSpeed = targetWeather.windSpeed;
+                    currentWeather.windRad = targetWeather.windRad;
+                    currentWeather.sunriseHour = targetWeather.sunriseHour;
+                    currentWeather.sunsetHour = targetWeather.sunsetHour;
+                    currentWeather.moonPhase = targetWeather.moonPhase;
+                    currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
+                    hasInitializedWeather = true;
+                }
+
+                if (statusDot) statusDot.className = "hud-status connected";
+                if (statusText) statusText.innerText = `Open-Meteo OK (${new Date().toLocaleTimeString()})`;
+
+                const cloudInfo = document.getElementById("cloud-info");
+                if (cloudInfo) {
+                    const cloudDesc = cloudPct < 30 ? "Clear" : (cloudPct < 70 ? "Partly Cloudy" : "Overcast");
+                    cloudInfo.innerText = `Cloud: ${cloudPct}% (${cloudDesc})`;
+                }
+
+                const rainInfo = document.getElementById("rain-info");
+                if (rainInfo) {
+                    rainInfo.innerText = `Rain: ${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
+                }
+
+                const windInfo = document.getElementById("wind-info");
+                if (windInfo) {
+                    windInfo.innerText = `Wind: ${speedKmh.toFixed(1)} km/h (Direction ${getWindCompass(windDeg)})`;
+                }
+
+                const sunInfo = document.getElementById("sun-info");
+                if (sunInfo) {
+                    sunInfo.innerText = `Sun: Rise ${formatHour(targetWeather.sunriseHour)} - Set ${formatHour(targetWeather.sunsetHour)}`;
+                }
+
+                const moonInfo = document.getElementById("moon-info");
+                if (moonInfo) {
+                    const moonFullness = Math.round((1.0 - Math.abs(2.0 * targetWeather.moonPhase - 1.0)) * 100);
+                    moonInfo.innerText = `Moon Phase: ${getMoonPhaseName(targetWeather.moonPhase)} (${moonFullness}% illumination)`;
+                }
+
+                if (state.cloudMode === 0) {
+                    const el = document.getElementById("val-cloud");
+                    if (el) el.innerText = `${cloudPct}%`;
+                    const sl = document.getElementById("slider-cloud");
+                    if (sl) sl.value = cloudPct;
+                }
+                if (state.rainMode === 0) {
+                    const el = document.getElementById("val-rain");
+                    if (el) el.innerText = `${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
+                    const sl = document.getElementById("slider-rain");
+                    if (sl) sl.value = Math.min(rainMm, 20.0);
+                }
+                if (state.windMode === 0) {
+                    const el = document.getElementById("val-wind");
+                    if (el) el.innerText = `${speedKmh.toFixed(1)} km/h`;
+                    const sl = document.getElementById("slider-wind");
+                    if (sl) sl.value = Math.min(speedKmh, 40.0);
+                    const elDir = document.getElementById("val-wind-dir");
+                    if (elDir) elDir.innerText = `${Math.round(windDeg)}° (${getWindCompass(windDeg)})`;
+                    const slDir = document.getElementById("slider-wind-dir");
+                    if (slDir) slDir.value = Math.round(windDeg);
+                }
+
+            } catch (err) {
+                console.warn("Weather update failed:", err);
+                if (statusDot) statusDot.className = "hud-status error";
+                if (statusText) statusText.innerText = "Connection Error (Using default)";
+            }
+        }
+
+        updateWeather();
+        setInterval(updateWeather, WEATHER_UPDATE_INTERVAL_MS);
+
+        function updateClock() {
+            const timeInfo = document.getElementById("time-info");
+            if (timeInfo) {
+                timeInfo.innerText = `Local Time: ${new Date().toLocaleTimeString()}`;
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        const sliderTime = document.getElementById("slider-time");
+        const valTime = document.getElementById("val-time");
+        const badgeTimeMode = document.getElementById("badge-time-mode");
+
+        sliderTime.addEventListener("input", (e) => {
+            state.timeMode = 2;
+            state.manualHour = parseFloat(e.target.value);
+            updateTimeBadge();
+        });
+
+        badgeTimeMode.addEventListener("click", () => {
+            cycleTimeMode();
+        });
+
+        function updateTimeBadge() {
+            if (state.timeMode === 0) {
+                badgeTimeMode.innerText = "Real Time";
+            } else if (state.timeMode === 1) {
+                badgeTimeMode.innerText = "Fast Forward";
+            } else {
+                badgeTimeMode.innerText = "Manual";
+                const h = Math.floor(state.manualHour);
+                const m = Math.floor((state.manualHour - h) * 60);
+                valTime.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function cycleTimeMode() {
+            state.timeMode = (state.timeMode + 1) % 3;
+            updateTimeBadge();
+        }
+
+        const sliderCloud = document.getElementById("slider-cloud");
+        const valCloud = document.getElementById("val-cloud");
+        const badgeCloudMode = document.getElementById("badge-cloud-mode");
+
+        sliderCloud.addEventListener("input", (e) => {
+            state.cloudMode = 1;
+            state.manualCloud = parseInt(e.target.value) / 100.0;
+            badgeCloudMode.innerText = "Manual";
+            valCloud.innerText = `${e.target.value}%`;
+        });
+
+        badgeCloudMode.addEventListener("click", () => {
+            toggleCloudMode();
+        });
+
+        function toggleCloudMode() {
+            state.cloudMode = (state.cloudMode === 0) ? 1 : 0;
+            badgeCloudMode.innerText = (state.cloudMode === 0) ? "API" : "Manual";
+            if (state.cloudMode === 0) {
+                const cloudPct = Math.round(targetWeather.cloudDensity * 100);
+                valCloud.innerText = `${cloudPct}%`;
+                sliderCloud.value = cloudPct;
+            }
+        }
+
+        const sliderRain = document.getElementById("slider-rain");
+        const valRain = document.getElementById("val-rain");
+        const badgeRainMode = document.getElementById("badge-rain-mode");
+
+        sliderRain.addEventListener("input", (e) => {
+            state.rainMode = 2;
+            const mm = parseFloat(e.target.value);
+            state.manualRain = Math.min(mm / 3.0, 20.0 / 3.0);
+            badgeRainMode.innerText = "Manual";
+            valRain.innerText = `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
+        });
+
+        badgeRainMode.addEventListener("click", () => {
+            cycleRainMode();
+        });
+
+        function cycleRainMode() {
+            state.rainMode = (state.rainMode + 1) % 3;
+            if (state.rainMode === 0) {
+                badgeRainMode.innerText = "API";
+                const rainVal = targetWeather.rainIntensity * 3.0;
+                valRain.innerText = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
+                sliderRain.value = Math.min(rainVal, 20.0);
+            } else if (state.rainMode === 1) {
+                badgeRainMode.innerText = "Heavy Rain";
+                state.manualRain = 1.5;
+                valRain.innerText = "20.0 mm/h (Heavy Rain)";
+                sliderRain.value = 20.0;
+            } else {
+                badgeRainMode.innerText = "Manual";
+                const rainVal = state.manualRain * 3.0;
+                valRain.innerText = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
+                sliderRain.value = Math.min(rainVal, 20.0);
+            }
+        }
+
+        const sliderWind = document.getElementById("slider-wind");
+        const valWind = document.getElementById("val-wind");
+        const badgeWindMode = document.getElementById("badge-wind-mode");
+        const sliderWindDir = document.getElementById("slider-wind-dir");
+        const valWindDir = document.getElementById("val-wind-dir");
+
+        sliderWind.addEventListener("input", (e) => {
+            state.windMode = 1;
+            const kmh = parseFloat(e.target.value);
+            state.manualWindSpeed = Math.max(0.08, Math.min(0.35, kmh / 50.0));
+            badgeWindMode.innerText = "Manual";
+            valWind.innerText = `${kmh.toFixed(1)} km/h`;
+        });
+
+        sliderWindDir.addEventListener("input", (e) => {
+            state.windMode = 1;
+            const deg = parseFloat(e.target.value);
+            state.manualWindDeg = deg;
+            badgeWindMode.innerText = "Manual";
+            valWindDir.innerText = `${Math.round(deg)}° (${getWindCompass(deg)})`;
+        });
+
+        badgeWindMode.addEventListener("click", () => {
+            state.windMode = (state.windMode === 0) ? 1 : 0;
+            badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+        });
+
+        const sliderMist = document.getElementById("slider-mist");
+        const valMist = document.getElementById("val-mist");
+        const badgeMistMode = document.getElementById("badge-mist-mode");
+
+        sliderMist.addEventListener("input", (e) => {
+            state.mistMode = 1;
+            state.manualMist = parseInt(e.target.value) / 100.0;
+            badgeMistMode.innerText = "Manual";
+            valMist.innerText = `${e.target.value}%`;
+            if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, state.manualMist);
+        });
+
+        badgeMistMode.addEventListener("click", () => {
+            cycleMistMode();
+        });
+
+        function cycleMistMode() {
+            state.mistMode = (state.mistMode + 1) % 3;
+            if (state.mistMode === 0) {
+                badgeMistMode.innerText = "Auto (5h-8h)";
+                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 0.0);
+            } else if (state.mistMode === 1) {
+                badgeMistMode.innerText = "Always On";
+                state.manualMist = 1.0;
+                valMist.innerText = "100%";
+                sliderMist.value = 100;
+                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 1.0);
+            } else {
+                badgeMistMode.innerText = "Always Off";
+                state.manualMist = 0.0;
+                valMist.innerText = "0%";
+                sliderMist.value = 0;
+                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 0.0);
+            }
+        }
+
+        function setupBoostSlider(sliderId, valId, propName, uniformLocGetter) {
+            const slider = document.getElementById(sliderId);
+            const val = document.getElementById(valId);
+            if (!slider || !val) return;
+            slider.addEventListener("input", (e) => {
+                const num = parseInt(e.target.value);
+                state[propName] = num / 100.0;
+                val.innerText = `${num}%`;
+                const loc = uniformLocGetter();
+                if (gl && loc) gl.uniform1f(loc, state[propName]);
+            });
+        }
+
+        setupBoostSlider("slider-moon", "val-moon", "moonBoost", () => uMoonBoostLoc);
+        setupBoostSlider("slider-caustic", "val-caustic", "causticBoost", () => uCausticBoostLoc);
+        setupBoostSlider("slider-ray", "val-ray", "rayBoost", () => uRayBoostLoc);
+        setupBoostSlider("slider-glint", "val-glint", "glintBoost", () => uGlintBoostLoc);
+        setupBoostSlider("slider-star", "val-star", "starBoost", () => uStarBoostLoc);
+        setupBoostSlider("slider-ripple", "val-ripple", "rippleBoost", () => uRippleBoostLoc);
+        setupBoostSlider("slider-firefly", "val-firefly", "fireflyBoost", () => uFireflyBoostLoc);
+
+        function applyInitialUiState() {
+            const hud = document.getElementById("weather-hud");
+            if (hud) {
+                hud.style.opacity = isHudVisible ? "1" : "0";
+                hud.style.pointerEvents = isHudVisible ? "auto" : "none";
+            }
+
+            if (sliderTime) sliderTime.value = state.manualHour;
+            updateTimeBadge();
+
+            if (sliderCloud) sliderCloud.value = Math.round(state.manualCloud * 100);
+            if (badgeCloudMode) badgeCloudMode.innerText = (state.cloudMode === 0) ? "API" : "Manual";
+            if (valCloud) valCloud.innerText = (state.cloudMode === 0) ? "50%" : `${Math.round(state.manualCloud * 100)}%`;
+
+            if (sliderRain) sliderRain.value = (state.rainMode === 1) ? 20 : (state.manualRain * 3.0);
+            if (badgeRainMode) badgeRainMode.innerText = (state.rainMode === 0) ? "API" : (state.rainMode === 1 ? "Heavy (20mm)" : "Manual");
+            if (valRain) {
+                const mm = (state.rainMode === 1) ? 20.0 : (state.manualRain * 3.0);
+                valRain.innerText = (state.rainMode === 0) ? "0.0 mm/h (Dry)" : `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
+            }
+
+            if (sliderWind) sliderWind.value = (state.manualWindSpeed * 50.0);
+            if (sliderWindDir) sliderWindDir.value = state.manualWindDeg;
+            if (badgeWindMode) badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+            if (valWind) valWind.innerText = `${(state.manualWindSpeed * 50.0).toFixed(1)} km/h`;
+            if (valWindDir) valWindDir.innerText = `${Math.round(state.manualWindDeg)}° (${getWindCompass(state.manualWindDeg)})`;
+
+            if (sliderMist) sliderMist.value = Math.round(state.manualMist * 100);
+            if (badgeMistMode) badgeMistMode.innerText = (state.mistMode === 0) ? "Auto" : "Manual";
+            if (valMist) valMist.innerText = `${Math.round(state.manualMist * 100)}%`;
+
+            const boosts = [
+                ["slider-moon", "val-moon", "moonBoost"],
+                ["slider-caustic", "val-caustic", "causticBoost"],
+                ["slider-ray", "val-ray", "rayBoost"],
+                ["slider-glint", "val-glint", "glintBoost"],
+                ["slider-star", "val-star", "starBoost"],
+                ["slider-ripple", "val-ripple", "rippleBoost"],
+                ["slider-firefly", "val-firefly", "fireflyBoost"]
+            ];
+            for (const [sId, vId, prop] of boosts) {
+                const sl = document.getElementById(sId);
+                const vl = document.getElementById(vId);
+                const pct = Math.round(state[prop] * 100);
+                if (sl) sl.value = pct;
+                if (vl) vl.innerText = `${pct}%`;
+            }
+        }
+        applyInitialUiState();
+
+        function toggleEffect(propName, sliderId, valId, uniformLocGetter) {
+            if (state[propName] > 0.0) {
+                state[propName] = 0.0;
+                const sl = document.getElementById(sliderId);
+                if (sl) sl.value = 0;
+                const val = document.getElementById(valId);
+                if (val) val.innerText = "0%";
+            } else {
+                state[propName] = 1.0;
+                const sl = document.getElementById(sliderId);
+                if (sl) sl.value = 100;
+                const val = document.getElementById(valId);
+                if (val) val.innerText = "100%";
+            }
+            const loc = uniformLocGetter();
+            if (gl && loc) gl.uniform1f(loc, state[propName]);
+        }
+
+        window.addEventListener("keydown", (e) => {
+            const k = e.key.toLowerCase();
+
+            if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+                cycleRainMode();
+            } else if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') {
+                cycleTimeMode();
+            } else if (e.key === '4' || e.code === 'Digit4' || e.code === 'Numpad4') {
+                isHudVisible = !isHudVisible;
+                const hud = document.getElementById("weather-hud");
+                if (hud) {
+                    hud.style.opacity = isHudVisible ? "1" : "0";
+                    hud.style.pointerEvents = isHudVisible ? "auto" : "none";
+                }
+            } else if (e.key === '5' || e.code === 'Digit5' || e.code === 'Numpad5') {
+                cycleMistMode();
+            } else if (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6') {
+                if (state.cloudMode === 0) {
+                    state.cloudMode = 1;
+                    state.manualCloud = 0.96;
+                    badgeCloudMode.innerText = "Overcast (96%)";
+                    valCloud.innerText = "96%";
+                    sliderCloud.value = 96;
+                } else if (state.manualCloud > 0.5) {
+                    state.manualCloud = 0.05;
+                    badgeCloudMode.innerText = "Clear (5%)";
+                    valCloud.innerText = "5%";
+                    sliderCloud.value = 5;
+                } else {
+                    state.cloudMode = 0;
+                    badgeCloudMode.innerText = "API";
+                }
+            } else if (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7') {
+                state.windMode = (state.windMode === 0) ? 1 : 0;
+                badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+            } else if (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8') {
+                state.moonBoost = (state.moonBoost <= 1.0) ? 1.6 : 1.0;
+                const pct = Math.round(state.moonBoost * 100);
+                const sl = document.getElementById("slider-moon");
+                if (sl) sl.value = pct;
+                const val = document.getElementById("val-moon");
+                if (val) val.innerText = `${pct}%`;
+                if (gl && uMoonBoostLoc) gl.uniform1f(uMoonBoostLoc, state.moonBoost);
+            } else if (k === 'c') {
+                toggleEffect("causticBoost", "slider-caustic", "val-caustic", () => uCausticBoostLoc);
+            } else if (k === 'r') {
+                toggleEffect("rayBoost", "slider-ray", "val-ray", () => uRayBoostLoc);
+            } else if (k === 'g') {
+                toggleEffect("glintBoost", "slider-glint", "val-glint", () => uGlintBoostLoc);
+            } else if (k === 's') {
+                toggleEffect("starBoost", "slider-star", "val-star", () => uStarBoostLoc);
+            } else if (k === 'w') {
+                toggleEffect("rippleBoost", "slider-ripple", "val-ripple", () => uRippleBoostLoc);
+            } else if (k === 'f') {
+                toggleEffect("fireflyBoost", "slider-firefly", "val-firefly", () => uFireflyBoostLoc);
+            }
+        });
+
+        canvas.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }, false);
+
+        canvas.addEventListener("webglcontextrestored", () => {
+            initWebGLResources();
+            resize();
+            initWallpaperImage();
+            if (isPageVisible && !animationFrameId) {
+                isVisibilityResumed = true;
+                lastRenderTimeMs = 0;
+                lastFrameTime = performance.now();
+                animationFrameId = requestAnimationFrame(render);
+            }
+        }, false);
+
+        let isPageVisible = !document.hidden;
+        let animationFrameId = null;
+        let isVisibilityResumed = true;
+
+        document.addEventListener("visibilitychange", () => {
+            isPageVisible = !document.hidden;
+            if (isPageVisible) {
+                isVisibilityResumed = true;
+                hasInitializedWeather = false;
+                lastRenderTimeMs = 0;
+                lastFrameTime = performance.now();
+                updateWeather();
+                if (!animationFrameId) {
+                    animationFrameId = requestAnimationFrame(render);
+                }
+            } else {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+            }
+        });
+
+        function smoothstep(edge0, edge1, x) {
+            const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3.0 - 2.0 * t);
+        }
+
+        function mix(x, y, a) {
+            return x * (1.0 - a) + y * a;
+        }
+
+        const FRAME_INTERVAL_MS = 1000.0 / TARGET_FPS;
+        let lastRenderTimeMs = 0;
+        let lastFrameTime = performance.now();
+        let accumulatedTime = 0.0;
+        let cloudOffsetX = 0.0;
+        let cloudOffsetY = 0.0;
+
+        function render(nowMs) {
+            if (!isPageVisible) {
+                animationFrameId = null;
+                return;
+            }
+
+            const now = nowMs || performance.now();
+            animationFrameId = requestAnimationFrame(render);
+
+            if (lastRenderTimeMs > 0 && (now - lastRenderTimeMs < FRAME_INTERVAL_MS - 1.0)) {
+                return;
+            }
+
+            const isResuming = isVisibilityResumed || (lastFrameTime > 0 && (now - lastFrameTime > 500.0));
+            isVisibilityResumed = false;
+
+            const dt = (isResuming || lastFrameTime <= 0) ? 0.016 : Math.min((now - lastFrameTime) * 0.001, 0.1);
+            lastFrameTime = now;
+            lastRenderTimeMs = now;
+
+            accumulatedTime += dt;
+            if (accumulatedTime > 86400.0) accumulatedTime -= 86400.0;
+
+            const lerpFactor = isResuming ? 1.0 : (1.0 - Math.exp(-3.0 * dt));
+
+            if (state.timeMode === 0) {
+                currentWeather.timeOfDay = calculateRealTimeOfDay();
+                const currentHour = currentWeather.timeOfDay * 24.0;
+                const hh = Math.floor(currentHour);
+                const mm = Math.floor((currentHour - hh) * 60);
+                if (valTime) valTime.innerText = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+                if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+            } else if (state.timeMode === 1) {
+                currentWeather.timeOfDay = (accumulatedTime / 15.0) % 1.0;
+                const currentHour = currentWeather.timeOfDay * 24.0;
+                const hh = Math.floor(currentHour);
+                const mm = Math.floor((currentHour - hh) * 60);
+                if (valTime) valTime.innerText = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+                if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+            } else {
+                currentWeather.timeOfDay = state.manualHour / 24.0;
+            }
+
+            let effectiveCloud = (state.cloudMode === 0) ? targetWeather.cloudDensity : state.manualCloud;
+
+            let effectiveRain = 0.0;
+            if (state.rainMode === 0) {
+                effectiveRain = targetWeather.rainIntensity;
+            } else if (state.rainMode === 1) {
+                effectiveRain = 20.0 / 3.0;
+            } else {
+                effectiveRain = state.manualRain;
+            }
+
+            let effectiveWindSpeed = 0.15;
+            let effectiveWindRad = 45.0 * (Math.PI / 180.0);
+            if (state.windMode === 0) {
+                effectiveWindSpeed = targetWeather.windSpeed;
+                effectiveWindRad = targetWeather.windRad;
+            } else {
+                effectiveWindSpeed = state.manualWindSpeed;
+                effectiveWindRad = state.manualWindDeg * (Math.PI / 180.0);
+            }
+
+            let effectiveSunrise = targetWeather.sunriseHour;
+            let effectiveSunset = targetWeather.sunsetHour;
+            let effectiveMoonPhase = targetWeather.moonPhase;
+
+            if (isResuming) {
+                currentWeather.cloudDensity = effectiveCloud;
+                currentWeather.rainIntensity = effectiveRain;
+                currentWeather.windSpeed = effectiveWindSpeed;
+                currentWeather.windRad = effectiveWindRad;
+                currentWeather.sunriseHour = effectiveSunrise;
+                currentWeather.sunsetHour = effectiveSunset;
+                currentWeather.moonPhase = effectiveMoonPhase;
+                currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.causticBoost = state.causticBoost;
+                currentWeather.rayBoost = state.rayBoost;
+                currentWeather.glintBoost = state.glintBoost;
+                currentWeather.starBoost = state.starBoost;
+                currentWeather.rippleBoost = state.rippleBoost;
+                currentWeather.fireflyBoost = state.fireflyBoost;
+            } else {
+                currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
+                currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
+                currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * lerpFactor;
+
+                let dRad = effectiveWindRad - currentWeather.windRad;
+                while (dRad > Math.PI) dRad -= 2.0 * Math.PI;
+                while (dRad < -Math.PI) dRad += 2.0 * Math.PI;
+                currentWeather.windRad += dRad * lerpFactor;
+
+                currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
+                currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
+
+                let dMoon = effectiveMoonPhase - currentWeather.moonPhase;
+                if (dMoon > 0.5) dMoon -= 1.0;
+                else if (dMoon < -0.5) dMoon += 1.0;
+                currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
+
+                const effectiveMoonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
+
+                currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * lerpFactor;
+                currentWeather.rayBoost += (state.rayBoost - currentWeather.rayBoost) * lerpFactor;
+                currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * lerpFactor;
+                currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * lerpFactor;
+                currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * lerpFactor;
+                currentWeather.fireflyBoost += (state.fireflyBoost - currentWeather.fireflyBoost) * lerpFactor;
+            }
+
+            const cosW = Math.cos(currentWeather.windRad);
+            const sinW = Math.sin(currentWeather.windRad) * 0.5;
+            const wLen = Math.hypot(cosW, sinW);
+            const normWindX = (wLen > 0.001) ? (cosW / wLen) : 0.7071;
+            const normWindY = (wLen > 0.001) ? (sinW / wLen) : 0.353;
+            const windSlant = normWindX * Math.max(0.06, Math.min(0.45, currentWeather.windSpeed * 1.8));
+
+            cloudOffsetX += normWindX * currentWeather.windSpeed * dt;
+            cloudOffsetY += normWindY * currentWeather.windSpeed * dt;
+            if (cloudOffsetX > 2048.0) cloudOffsetX -= 2048.0;
+            else if (cloudOffsetX < -2048.0) cloudOffsetX += 2048.0;
+            if (cloudOffsetY > 2048.0) cloudOffsetY -= 2048.0;
+            else if (cloudOffsetY < -2048.0) cloudOffsetY += 2048.0;
+
+            const currentHour = currentWeather.timeOfDay * 24.0;
+            const sunrise = currentWeather.sunriseHour;
+            const sunset = currentWeather.sunsetHour;
+
+            const morningRise = smoothstep(sunrise - 0.50, sunrise + 0.50, currentHour);
+            const eveningSet = 1.0 - smoothstep(sunset - 0.50, sunset + 0.50, currentHour);
+            const dayFactor = Math.max(0.0, Math.min(1.0, morningRise * eveningSet));
+            const nightFactor = 1.0 - dayFactor;
+
+            const dawnFactor = Math.exp(-Math.pow((currentHour - sunrise) / 0.70, 2.0));
+            const sunsetFactor = Math.exp(-Math.pow((currentHour - sunset) / 0.70, 2.0));
+
+            const dawnRay = dawnFactor * smoothstep(sunrise - 0.30, sunrise + 0.15, currentHour);
+            const sunsetRay = sunsetFactor * (1.0 - smoothstep(sunset - 0.15, sunset + 0.30, currentHour));
+
+            const normRain = Math.max(0.0, Math.min(1.0, currentWeather.rainIntensity * 0.15));
+            const finalCloudCover = Math.max(0.0, Math.min(1.0, currentWeather.cloudDensity + normRain * 0.35));
+            const lightIntensity = Math.max(0.30, Math.min(1.0, 1.05 - finalCloudCover * 0.60));
+
+            const dayR = mix(0.85, 1.04, lightIntensity);
+            const dayG = mix(0.88, 1.00, lightIntensity);
+            const dayB = mix(0.94, 0.96, lightIntensity);
+
+            const dawnR = mix(1.02, 1.14, lightIntensity);
+            const dawnG = mix(0.92, 0.98, lightIntensity);
+            const dawnB = mix(0.88, 0.90, lightIntensity);
+
+            const sunsetR = mix(1.15, 1.35, lightIntensity);
+            const sunsetG = mix(0.70, 0.78, lightIntensity);
+            const sunsetB = mix(0.50, 0.45, lightIntensity);
+
+            const nightR = 0.22 * currentWeather.moonBoost;
+            const nightG = 0.32 * currentWeather.moonBoost;
+            const nightB = 0.55 * currentWeather.moonBoost;
+
+            let ambR = mix(nightR, dayR, dayFactor);
+            let ambG = mix(nightG, dayG, dayFactor);
+            let ambB = mix(nightB, dayB, dayFactor);
+
+            const effDawnCoeff = 0.65 + 0.35 * dayFactor;
+            const effDawnR = dawnR * effDawnCoeff;
+            const effDawnG = dawnG * effDawnCoeff;
+            const effDawnB = dawnB * effDawnCoeff;
+
+            const effSunsetCoeff = 0.65 + 0.35 * dayFactor;
+            const effSunsetR = sunsetR * effSunsetCoeff;
+            const effSunsetG = sunsetG * effSunsetCoeff;
+            const effSunsetB = sunsetB * effSunsetCoeff;
+
+            const dawnWeight = dawnFactor * 0.60;
+            ambR = mix(ambR, effDawnR, dawnWeight);
+            ambG = mix(ambG, effDawnG, dawnWeight);
+            ambB = mix(ambB, effDawnB, dawnWeight);
+
+            const sunsetWeight = sunsetFactor * 0.60;
+            ambR = mix(ambR, effSunsetR, sunsetWeight);
+            ambG = mix(ambG, effSunsetG, sunsetWeight);
+            ambB = mix(ambB, effSunsetB, sunsetWeight);
+
+            const rainDim = normRain * 0.40;
+            ambR = mix(ambR, ambR * 0.82, rainDim);
+            ambG = mix(ambG, ambG * 0.86, rainDim);
+            ambB = mix(ambB, ambB * 0.92, rainDim);
+
+            const baseMoon = (state.moonBoost > 0.001) ? (currentWeather.moonBoost / state.moonBoost) : 1.0;
+            const isFullMoonNight = Math.max(0.0, Math.min(1.0, (baseMoon - 1.00) / 0.60));
+
+            const autoMist = smoothstep(sunrise - 1.2, sunrise - 0.1, currentHour) * (1.0 - smoothstep(sunrise + 0.6, sunrise + 1.8, currentHour));
+            const mistOverride = (state.mistMode === 0) ? 0.0 : state.manualMist;
+            const morningMistWindow = Math.max(autoMist, mistOverride);
+
+            const mistProgress = smoothstep(sunrise - 0.35, sunrise + 0.35, currentHour);
+            const mistDayR = mix(0.92, 1.0, dawnFactor);
+            const mistDayG = mix(0.95, 0.97, dawnFactor);
+            const mistDayB = mix(1.0, 0.92, dawnFactor);
+
+            const mistR = mix(0.35, mistDayR, mistProgress);
+            const mistG = mix(0.45, mistDayG, mistProgress);
+            const mistB = mix(0.60, mistDayB, mistProgress);
+
+            if (gl && program) {
+                gl.uniform1f(uTimeLoc, accumulatedTime);
+                gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
+                gl.uniform3f(uWindParamsLoc, cloudOffsetX, cloudOffsetY, windSlant);
+                gl.uniform1f(uMoonBoostLoc, currentWeather.moonBoost);
+
+                gl.uniform3f(uAmbientLoc, ambR, ambG, ambB);
+                gl.uniform4f(uDayNightFactorsLoc, dayFactor, nightFactor, dawnFactor, sunsetFactor);
+                gl.uniform4f(uWeatherFactorsLoc, normRain, finalCloudCover, dawnRay, sunsetRay);
+                gl.uniform4f(uMistParamsLoc, mistR, mistG, mistB, morningMistWindow);
+                gl.uniform1f(uIsFullMoonNightLoc, isFullMoonNight);
+
+                gl.uniform1f(uCausticBoostLoc, currentWeather.causticBoost);
+                gl.uniform1f(uRayBoostLoc, currentWeather.rayBoost);
+                gl.uniform1f(uGlintBoostLoc, currentWeather.glintBoost);
+                gl.uniform1f(uStarBoostLoc, currentWeather.starBoost);
+                gl.uniform1f(uRippleBoostLoc, currentWeather.rippleBoost);
+                gl.uniform1f(uFireflyBoostLoc, currentWeather.fireflyBoost);
+
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(render);
+
+    </script>
+
+<script>
+window.addEventListener('load', () => {
+    console.log('BENCH_LOADED');
+});
+</script>
+</body>
+</html>

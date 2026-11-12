@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Weather Wallpaper - Full Controls</title>
     <script src="wallpaper.js"></script>
     <style>
@@ -313,6 +314,14 @@
                 </div>
                 <input type="range" id="slider-ripple" min="0" max="200" step="5" value="100">
             </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[F]</span> Fireflies:</span>
+                    <span id="val-firefly" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-firefly" min="0" max="200" step="5" value="100">
+            </div>
         </div>
     </div>
 
@@ -320,6 +329,8 @@
     <script>
         const LATITUDE = 21.0285;
         const LONGITUDE = 105.8542;
+        const TARGET_FPS = 60;
+        const MAX_DPR = 1.5;
         const WEATHER_UPDATE_INTERVAL_MINUTES = 10;
 
         const SHOW_HUD = true;
@@ -347,6 +358,7 @@
         const GLINT_BOOST = 1.0;
         const STAR_BOOST = 1.0;
         const RIPPLE_BOOST = 1.0;
+        const FIREFLY_BOOST = 1.0;
 
         const WEATHER_UPDATE_INTERVAL_MS = WEATHER_UPDATE_INTERVAL_MINUTES * 60 * 1000;
 
@@ -357,7 +369,7 @@
             return phase < 0 ? phase + 1.0 : phase;
         }
 
-        function calculateMoonBoost(cloudDensity, moonPhaseVal) {
+        function calculateMoonBoost(moonPhaseVal) {
             const p = (moonPhaseVal !== undefined) ? moonPhaseVal : targetWeather.moonPhase;
             const m = Math.max(0.0, Math.min(1.0, 1.0 - Math.abs(2.0 * p - 1.0)));
             return 1.00 + m * 0.60;
@@ -394,6 +406,12 @@
 
         function calculateRealTimeOfDay() {
             const now = new Date();
+            if (targetWeather.utcOffsetSeconds !== null && targetWeather.utcOffsetSeconds !== undefined) {
+                const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+                const targetDate = new Date(utcMs + targetWeather.utcOffsetSeconds * 1000);
+                const seconds = targetDate.getHours() * 3600 + targetDate.getMinutes() * 60 + targetDate.getSeconds() + targetDate.getMilliseconds() * 0.001;
+                return seconds / 86400.0;
+            }
             const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() * 0.001;
             return seconds / 86400.0;
         }
@@ -418,6 +436,7 @@
             glintBoost: GLINT_BOOST,
             starBoost: STAR_BOOST,
             rippleBoost: RIPPLE_BOOST,
+            fireflyBoost: FIREFLY_BOOST,
             scaleMode: SCALE_MODE
         };
 
@@ -425,11 +444,11 @@
             cloudDensity: 0.5,
             rainIntensity: 0.0,
             windSpeed: 0.15,
-            windRad: Math.PI * 0.25,
-            windDir: [0.7071, 0.353],
+            windRad: 45.0 * (Math.PI / 180.0),
             sunriseHour: 6.0,
             sunsetHour: 18.0,
-            moonPhase: getAstronomicalMoonPhase()
+            moonPhase: getAstronomicalMoonPhase(),
+            utcOffsetSeconds: null
         };
 
         let currentWeather = {
@@ -437,8 +456,7 @@
             cloudDensity: 0.5,
             rainIntensity: 0.0,
             windSpeed: 0.15,
-            windRad: Math.PI * 0.25,
-            windDir: [0.7071, 0.353],
+            windRad: 45.0 * (Math.PI / 180.0),
             sunriseHour: 6.0,
             sunsetHour: 18.0,
             moonPhase: getAstronomicalMoonPhase(),
@@ -448,7 +466,8 @@
             rayBoost: RAY_BOOST,
             glintBoost: GLINT_BOOST,
             starBoost: STAR_BOOST,
-            rippleBoost: RIPPLE_BOOST
+            rippleBoost: RIPPLE_BOOST,
+            fireflyBoost: FIREFLY_BOOST
         };
 
         const canvas = document.getElementById("glcanvas");
@@ -570,11 +589,11 @@ void main() {
     float regionExclusion = 1.0 - smoothstep(0.20, 0.25, v_uv.x) * (1.0 - smoothstep(0.49, 0.54, v_uv.x)) * smoothstep(0.69, 0.74, v_uv.y) * (1.0 - smoothstep(1.02, 1.07, v_uv.y));
     float mistDepthMask = bgLakeMask * charMask * regionExclusion;
 
-    float shallowZone = smoothstep(0.14, 0.24, v_uv.x) * (1.0 - smoothstep(0.76, 0.86, v_uv.x))
-                      * smoothstep(0.04, 0.14, v_uv.y) * (1.0 - smoothstep(0.66, 0.76, v_uv.y));
-    float causticMask = shallowZone * waterMask * wingMask;
+    float waterZone = smoothstep(0.02, 0.08, v_uv.x) * (1.0 - smoothstep(0.92, 0.98, v_uv.x))
+                    * smoothstep(0.04, 0.12, v_uv.y) * (1.0 - smoothstep(0.86, 0.92, v_uv.y)) * regionExclusion;
+    float causticMask = waterZone * waterMask * wingMask;
 
-    fragColor = vec4(waterMask, mistDepthMask, causticMask, 1.0);
+    fragColor = vec4(waterMask, mistDepthMask, causticMask, charMask);
 }`;
         const fsSource = `#version 300 es
 precision highp float;
@@ -588,7 +607,6 @@ uniform sampler2D u_texture;
 uniform sampler2D u_maskTexture;
 
 uniform float u_rainIntensity;
-uniform float u_windSpeed;
 uniform vec3 u_windParams;
 uniform float u_moonBoost;
 
@@ -603,6 +621,7 @@ uniform float u_rayBoost;
 uniform float u_glintBoost;
 uniform float u_starBoost;
 uniform float u_rippleBoost;
+uniform float u_fireflyBoost;
 
 #define DEFAULT_IMAGE_ASPECT 2.155
 
@@ -733,7 +752,7 @@ float getForegroundRain(vec2 uv, float rainIntensity, float time) {
         float dropTilt = (hash21(id1 + vec2(3.1, 8.9)) - 0.5) * 0.05;
         float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
         float dy = gv1.y;
-        streak += smoothstep(0.038, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     vec2 st2 = vec2(rainUV.x * 59.0 + 17.3, rainUV.y * 1.8 + t * 25.0 + 31.5);
@@ -745,7 +764,7 @@ float getForegroundRain(vec2 uv, float rainIntensity, float time) {
         float dropTilt = (hash21(id2 + vec2(15.4, 71.2)) - 0.5) * 0.05;
         float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
         float dy = gv2.y;
-        streak += smoothstep(0.038, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     return streak * 0.07;
@@ -773,7 +792,7 @@ float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
         float dropTilt = (hash21(id1 + vec2(5.4, 2.1)) - 0.5) * 0.04;
         float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
         float dy = gv1.y;
-        streak += smoothstep(0.032, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     vec2 st2 = vec2(rainUV.x * 113.0 + 29.1, rainUV.y * 2.7 + t * 28.0 + 47.3);
@@ -785,7 +804,7 @@ float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
         float dropTilt = (hash21(id2 + vec2(11.7, 43.6)) - 0.5) * 0.04;
         float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
         float dy = gv2.y;
-        streak += smoothstep(0.032, 0.0, dx) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     return streak * 0.038 * waterDepthMask;
@@ -794,16 +813,19 @@ float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
 float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
     if (causticMask <= 0.005) return 0.0;
 
-    vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * 16.0;
-    vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32), 2048.0);
-    vec2 t2 = mod(vec2(-animTime * 0.38, animTime * 0.41), 2048.0);
+    float depthScale = mix(1.0, 2.2, smoothstep(0.20, 0.85, uv.y));
+    vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * (16.0 * depthScale);
+    float speedScale = mix(1.0, 0.70, smoothstep(0.30, 0.85, uv.y));
+    vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32) * speedScale, 2048.0);
+    vec2 t2 = mod(vec2(-animTime * 0.38, animTime * 0.41) * speedScale, 2048.0);
 
     float n1 = abs(noise(p + t1) - 0.5);
     float n2 = abs(noise(p * 1.35 + vec2(4.2, 8.7) + t2) - 0.5);
     float ridge1 = 1.0 - smoothstep(0.0, 0.11, n1);
     float ridge2 = 1.0 - smoothstep(0.0, 0.11, n2);
+    float depthFade = mix(1.0, 0.75, smoothstep(0.40, 0.85, uv.y));
 
-    return pow(ridge1 * ridge2, 1.35) * causticMask;
+    return pow(ridge1 * ridge2, 1.35) * causticMask * depthFade;
 }
 
 vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay, float dawnFactor, float sunsetFactor, float cloudCover, float normRain, float origLum) {
@@ -827,6 +849,60 @@ vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay,
 
     float antiClip = 1.0 - origLum * 0.55;
     return rayCol * (shafts * radialFade * rayWindow * antiClip * 0.22);
+}
+
+vec3 getFireflies(vec2 uv, float animTime, float fireflyActive, float boost, float charMask, sampler2D maskTex) {
+    if (fireflyActive <= 0.005 || boost <= 0.005 || charMask <= 0.01) return vec3(0.0);
+    if (uv.y < 0.02 || uv.y > 0.96) return vec3(0.0);
+
+    vec2 fp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 36.0;
+    vec2 cell = floor(fp);
+    float h = hash21(cell);
+
+    if (h < 0.988) return vec3(0.0);
+
+    vec2 basePos = hash22(cell + vec2(1.7, 8.3)) - 0.5;
+    vec2 flight = vec2(
+        sin(animTime * 0.35 + hash21(cell + 11.3) * 6.2831853),
+        cos(animTime * 0.28 + hash21(cell + 23.7) * 6.2831853)
+    ) * 0.20;
+    flight.x += sin(animTime * 0.15 + hash21(cell + 37.1) * 6.2831853) * 0.06;
+
+    vec2 center = 0.5 + basePos * 0.20 + flight;
+    vec2 centerUV = vec2((cell.x + center.x) / DEFAULT_IMAGE_ASPECT, cell.y + center.y) / 36.0;
+    if (centerUV.y < 0.04 || centerUV.y > 0.94) return vec3(0.0);
+
+    float centerCharMask = textureLod(maskTex, centerUV, 0.0).a;
+    if (centerCharMask < 0.60) return vec3(0.0);
+
+    float cycleDuration = 6.5 + hash21(cell + 7.1) * 3.5;
+    float flashDuration = 2.2 + hash21(cell + 19.4) * 0.8;
+    float cycleTime = mod(animTime + hash21(cell + 31.8) * 100.0, cycleDuration);
+
+    if (cycleTime >= flashDuration) return vec3(0.0);
+
+    float progress = cycleTime / flashDuration;
+    float envelope = smoothstep(0.0, 1.0, sin(progress * 3.14159265));
+
+    float fSpeed1 = 8.0 + hash21(cell + 13.7) * 7.0;
+    float fSpeed2 = 14.0 + hash21(cell + 29.1) * 9.0;
+    float fPhase = hash21(cell + 43.5) * 6.2831853;
+    float rawFlicker = sin(animTime * fSpeed1 + fPhase) * 0.60 + cos(animTime * fSpeed2 + fPhase * 1.5) * 0.40;
+    float flicker = 0.45 + 0.55 * pow(clamp(rawFlicker * 0.5 + 0.5, 0.0, 1.0), 1.6);
+    float pulse = envelope * flicker;
+
+    float sizeRand = 0.85 + hash21(cell + 4.9) * 0.30;
+    vec2 fRel = fract(fp) - center;
+    float r = length(fRel);
+
+    float core = 1.0 - smoothstep(0.0, 0.042 * sizeRand, r);
+    float halo = 1.0 - smoothstep(0.0, 0.132 * sizeRand, r);
+    float shape = core * 1.5 + halo * 0.60;
+
+    vec3 fireflyColor = mix(vec3(0.85, 0.95, 0.40), vec3(1.00, 0.84, 0.42), hash21(cell + 9.3));
+    fireflyColor = mix(fireflyColor, vec3(1.00, 1.00, 0.92), core);
+
+    return fireflyColor * (shape * pulse * 1.60 * fireflyActive * boost * smoothstep(0.40, 0.90, charMask));
 }
 
 void main() {
@@ -863,6 +939,7 @@ void main() {
     float waterMask = maskData.r;
     float mistDepthMask = maskData.g;
     float causticMask = maskData.b;
+    float charMask = maskData.a;
 
     vec2 rippleOffset = getWaterRipples(uv, rainIntensity, iTime, waterMask) * u_rippleBoost;
     vec2 distortedUV = clamp(uv + rippleOffset, 0.0, 1.0);
@@ -887,11 +964,25 @@ void main() {
     vec3 color = mix(nightProcessed, baseColor, dayFactor) * ambient;
     color *= effectiveCloudFactor;
 
-    if (dayFactor > 0.20 && normRain < 0.60) {
-        float caustics = getUnderwaterCaustics(distortedUV, animTime, causticMask);
-        vec3 causticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
+    if (normRain < 0.65 && causticMask > 0.005) {
         float sunVisibility = smoothstep(0.20, 0.55, dayFactor) * (1.0 - finalCloudCover * 0.65) * (1.0 - normRain);
-        color += causticTint * (caustics * 0.22 * max(0.0, sunVisibility) * u_causticBoost);
+        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
+        float moonVisibility = moonEmerge * (1.0 - finalCloudCover * 0.70) * (1.0 - normRain * 0.65);
+
+        float dayCausticWeight = max(0.0, sunVisibility);
+        float nightCausticWeight = max(0.0, moonVisibility) * moonBoost;
+
+        if (dayCausticWeight > 0.001 || nightCausticWeight > 0.001) {
+            float caustics = getUnderwaterCaustics(distortedUV, animTime, causticMask);
+            if (dayCausticWeight > 0.001) {
+                vec3 dayCausticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
+                color += dayCausticTint * (caustics * 0.154 * dayCausticWeight * u_causticBoost);
+            }
+            if (nightCausticWeight > 0.001) {
+                vec3 nightCausticTint = mix(vec3(0.48, 0.72, 1.00), vec3(0.65, 0.86, 1.15), isFullMoonNight);
+                color += nightCausticTint * (caustics * 0.126 * nightCausticWeight * u_causticBoost);
+            }
+        }
     }
 
     color += getCrepuscularRays(uv, animTime, dawnRay, sunsetRay, dawnFactor, sunsetFactor, finalCloudCover, normRain, origLum) * u_rayBoost;
@@ -970,6 +1061,9 @@ void main() {
         }
     }
 
+    float fireflyActive = nightFactor * mix(0.55, 1.00, finalCloudCover) * (1.0 - normRain * 0.70);
+    color += getFireflies(uv, animTime, fireflyActive, u_fireflyBoost, charMask, u_maskTexture);
+
     vec3 excess = max(vec3(0.0), color - 0.82);
     color += excess * excess * 0.45;
 
@@ -1007,7 +1101,6 @@ void main() {
         let uMaskTextureLoc = null;
 
         let uRainIntensityLoc = null;
-        let uWindSpeedLoc = null;
         let uWindParamsLoc = null;
         let uMoonBoostLoc = null;
 
@@ -1022,9 +1115,10 @@ void main() {
         let uGlintBoostLoc = null;
         let uStarBoostLoc = null;
         let uRippleBoostLoc = null;
+        let uFireflyBoostLoc = null;
 
-        let imgWidth = 3840;
-        let imgHeight = 1782;
+        let imgWidth = 3107;
+        let imgHeight = 1440;
         const uvTransform = new Float32Array([1, 1, 0, 0]);
 
         function updateUvTransform() {
@@ -1071,6 +1165,7 @@ void main() {
 
             const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
             const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            if (!vs || !fs) return false;
             program = gl.createProgram();
             gl.attachShader(program, vs);
             gl.attachShader(program, fs);
@@ -1078,11 +1173,14 @@ void main() {
 
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
                 console.error("Shader link error:", gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                program = null;
                 return false;
             }
 
             const bakeVs = createShader(gl, gl.VERTEX_SHADER, bakeVsSource);
             const bakeFs = createShader(gl, gl.FRAGMENT_SHADER, bakeFsSource);
+            if (!bakeVs || !bakeFs) return false;
             bakeProgram = gl.createProgram();
             gl.attachShader(bakeProgram, bakeVs);
             gl.attachShader(bakeProgram, bakeFs);
@@ -1090,6 +1188,8 @@ void main() {
 
             if (!gl.getProgramParameter(bakeProgram, gl.LINK_STATUS)) {
                 console.error("Bake link error:", gl.getProgramInfoLog(bakeProgram));
+                gl.deleteProgram(bakeProgram);
+                bakeProgram = null;
                 return false;
             }
 
@@ -1118,7 +1218,6 @@ void main() {
             uMaskTextureLoc = gl.getUniformLocation(program, "u_maskTexture");
 
             uRainIntensityLoc = gl.getUniformLocation(program, "u_rainIntensity");
-            uWindSpeedLoc = gl.getUniformLocation(program, "u_windSpeed");
             uWindParamsLoc = gl.getUniformLocation(program, "u_windParams");
             uMoonBoostLoc = gl.getUniformLocation(program, "u_moonBoost");
 
@@ -1133,6 +1232,7 @@ void main() {
             uGlintBoostLoc = gl.getUniformLocation(program, "u_glintBoost");
             uStarBoostLoc = gl.getUniformLocation(program, "u_starBoost");
             uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
+            uFireflyBoostLoc = gl.getUniformLocation(program, "u_fireflyBoost");
 
             gl.uniform1i(uScaleModeLoc, state.scaleMode);
             gl.uniform1f(uCausticBoostLoc, state.causticBoost);
@@ -1140,6 +1240,7 @@ void main() {
             gl.uniform1f(uGlintBoostLoc, state.glintBoost);
             gl.uniform1f(uStarBoostLoc, state.starBoost);
             gl.uniform1f(uRippleBoostLoc, state.rippleBoost);
+            gl.uniform1f(uFireflyBoostLoc, state.fireflyBoost);
 
             texture = gl.createTexture();
             gl.activeTexture(gl.TEXTURE0);
@@ -1157,7 +1258,7 @@ void main() {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0]));
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
 
             maskFBO = gl.createFramebuffer();
 
@@ -1175,13 +1276,14 @@ void main() {
             const bakeH = Math.max(1, Math.round(h * 0.5));
 
             gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, bakeW, bakeH, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bakeW, bakeH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, maskFBO);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, maskTexture, 0);
 
             const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
             if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error("Mask FBO incomplete: " + status);
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 return;
             }
@@ -1221,6 +1323,8 @@ void main() {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
             if (uImgResLoc) {
                 gl.useProgram(program);
                 gl.uniform2f(uImgResLoc, imgWidth, imgHeight);
@@ -1268,7 +1372,7 @@ void main() {
 
         function resize() {
             if (!gl) return;
-            const dpr = window.devicePixelRatio || 1;
+            const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
             const w = Math.round(window.innerWidth * dpr);
             const h = Math.round(window.innerHeight * dpr);
             if (canvas.width !== w || canvas.height !== h) {
@@ -1288,23 +1392,25 @@ void main() {
             const statusText = document.getElementById("status-text");
 
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=is_day,rain,precipitation,cloud_cover,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=precipitation,rain,cloud_cover,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 const data = await res.json();
 
+                if (data.utc_offset_seconds !== undefined) {
+                    targetWeather.utcOffsetSeconds = data.utc_offset_seconds;
+                }
+
                 const cloudPct = (data.current && data.current.cloud_cover !== undefined) ? data.current.cloud_cover : 50;
                 targetWeather.cloudDensity = Math.max(0.0, Math.min(1.0, cloudPct / 100.0));
 
-                const rainMm = (data.current && (data.current.rain !== undefined ? data.current.rain : (data.current.precipitation !== undefined ? data.current.precipitation : 0.0))) || 0.0;
+                const rainMm = (data.current && (data.current.precipitation !== undefined ? data.current.precipitation : (data.current.rain !== undefined ? data.current.rain : 0.0))) || 0.0;
                 targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
 
                 const speedKmh = (data.current && data.current.wind_speed_10m !== undefined) ? data.current.wind_speed_10m : 5.0;
                 targetWeather.windSpeed = Math.max(0.08, Math.min(0.35, speedKmh / 50.0));
                 const windDeg = (data.current && data.current.wind_direction_10m !== undefined) ? data.current.wind_direction_10m : 45.0;
                 targetWeather.windRad = windDeg * (Math.PI / 180.0);
-                targetWeather.windDir[0] = Math.cos(targetWeather.windRad);
-                targetWeather.windDir[1] = Math.sin(targetWeather.windRad) * 0.5;
 
                 targetWeather.moonPhase = getAstronomicalMoonPhase();
 
@@ -1334,12 +1440,10 @@ void main() {
                     currentWeather.rainIntensity = targetWeather.rainIntensity;
                     currentWeather.windSpeed = targetWeather.windSpeed;
                     currentWeather.windRad = targetWeather.windRad;
-                    currentWeather.windDir[0] = targetWeather.windDir[0];
-                    currentWeather.windDir[1] = targetWeather.windDir[1];
                     currentWeather.sunriseHour = targetWeather.sunriseHour;
                     currentWeather.sunsetHour = targetWeather.sunsetHour;
                     currentWeather.moonPhase = targetWeather.moonPhase;
-                    currentWeather.moonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase);
+                    currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
                     hasInitializedWeather = true;
                 }
 
@@ -1397,6 +1501,7 @@ void main() {
                 }
 
             } catch (err) {
+                console.warn("Weather update failed:", err);
                 if (statusDot) statusDot.className = "hud-status error";
                 if (statusText) statusText.innerText = "Connection Error (Using default)";
             }
@@ -1589,6 +1694,7 @@ void main() {
         setupBoostSlider("slider-glint", "val-glint", "glintBoost", () => uGlintBoostLoc);
         setupBoostSlider("slider-star", "val-star", "starBoost", () => uStarBoostLoc);
         setupBoostSlider("slider-ripple", "val-ripple", "rippleBoost", () => uRippleBoostLoc);
+        setupBoostSlider("slider-firefly", "val-firefly", "fireflyBoost", () => uFireflyBoostLoc);
 
         function applyInitialUiState() {
             const hud = document.getElementById("weather-hud");
@@ -1627,7 +1733,8 @@ void main() {
                 ["slider-ray", "val-ray", "rayBoost"],
                 ["slider-glint", "val-glint", "glintBoost"],
                 ["slider-star", "val-star", "starBoost"],
-                ["slider-ripple", "val-ripple", "rippleBoost"]
+                ["slider-ripple", "val-ripple", "rippleBoost"],
+                ["slider-firefly", "val-firefly", "fireflyBoost"]
             ];
             for (const [sId, vId, prop] of boosts) {
                 const sl = document.getElementById(sId);
@@ -1710,6 +1817,8 @@ void main() {
                 toggleEffect("starBoost", "slider-star", "val-star", () => uStarBoostLoc);
             } else if (k === 'w') {
                 toggleEffect("rippleBoost", "slider-ripple", "val-ripple", () => uRippleBoostLoc);
+            } else if (k === 'f') {
+                toggleEffect("fireflyBoost", "slider-firefly", "val-firefly", () => uFireflyBoostLoc);
             }
         });
 
@@ -1765,7 +1874,6 @@ void main() {
             return x * (1.0 - a) + y * a;
         }
 
-        const TARGET_FPS = 60;
         const FRAME_INTERVAL_MS = 1000.0 / TARGET_FPS;
         let lastRenderTimeMs = 0;
         let lastFrameTime = performance.now();
@@ -1849,12 +1957,13 @@ void main() {
                 currentWeather.sunriseHour = effectiveSunrise;
                 currentWeather.sunsetHour = effectiveSunset;
                 currentWeather.moonPhase = effectiveMoonPhase;
-                currentWeather.moonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
                 currentWeather.causticBoost = state.causticBoost;
                 currentWeather.rayBoost = state.rayBoost;
                 currentWeather.glintBoost = state.glintBoost;
                 currentWeather.starBoost = state.starBoost;
                 currentWeather.rippleBoost = state.rippleBoost;
+                currentWeather.fireflyBoost = state.fireflyBoost;
             } else {
                 currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
                 currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
@@ -1873,7 +1982,7 @@ void main() {
                 else if (dMoon < -0.5) dMoon += 1.0;
                 currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
 
-                const effectiveMoonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase) * state.moonBoost;
+                const effectiveMoonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
                 currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
 
                 currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * lerpFactor;
@@ -1881,6 +1990,7 @@ void main() {
                 currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * lerpFactor;
                 currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * lerpFactor;
                 currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * lerpFactor;
+                currentWeather.fireflyBoost += (state.fireflyBoost - currentWeather.fireflyBoost) * lerpFactor;
             }
 
             const cosW = Math.cos(currentWeather.windRad);
@@ -1889,9 +1999,6 @@ void main() {
             const normWindX = (wLen > 0.001) ? (cosW / wLen) : 0.7071;
             const normWindY = (wLen > 0.001) ? (sinW / wLen) : 0.353;
             const windSlant = normWindX * Math.max(0.06, Math.min(0.45, currentWeather.windSpeed * 1.8));
-
-            currentWeather.windDir[0] = cosW;
-            currentWeather.windDir[1] = sinW;
 
             cloudOffsetX += normWindX * currentWeather.windSpeed * dt;
             cloudOffsetY += normWindY * currentWeather.windSpeed * dt;
@@ -1983,7 +2090,6 @@ void main() {
             if (gl && program) {
                 gl.uniform1f(uTimeLoc, accumulatedTime);
                 gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
-                gl.uniform1f(uWindSpeedLoc, currentWeather.windSpeed);
                 gl.uniform3f(uWindParamsLoc, cloudOffsetX, cloudOffsetY, windSlant);
                 gl.uniform1f(uMoonBoostLoc, currentWeather.moonBoost);
 
@@ -1998,6 +2104,7 @@ void main() {
                 gl.uniform1f(uGlintBoostLoc, currentWeather.glintBoost);
                 gl.uniform1f(uStarBoostLoc, currentWeather.starBoost);
                 gl.uniform1f(uRippleBoostLoc, currentWeather.rippleBoost);
+                gl.uniform1f(uFireflyBoostLoc, currentWeather.fireflyBoost);
 
                 gl.drawArrays(gl.TRIANGLES, 0, 3);
             }
