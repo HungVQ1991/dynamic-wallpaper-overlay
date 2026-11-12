@@ -1727,6 +1727,8 @@ void main() {
             resize();
             initWallpaperImage();
             if (isPageVisible && !animationFrameId) {
+                isVisibilityResumed = true;
+                lastRenderTimeMs = 0;
                 lastFrameTime = performance.now();
                 animationFrameId = requestAnimationFrame(render);
             }
@@ -1734,11 +1736,16 @@ void main() {
 
         let isPageVisible = !document.hidden;
         let animationFrameId = null;
+        let isVisibilityResumed = true;
 
         document.addEventListener("visibilitychange", () => {
             isPageVisible = !document.hidden;
             if (isPageVisible) {
+                isVisibilityResumed = true;
+                hasInitializedWeather = false;
+                lastRenderTimeMs = 0;
                 lastFrameTime = performance.now();
+                updateWeather();
                 if (!animationFrameId) {
                     animationFrameId = requestAnimationFrame(render);
                 }
@@ -1750,10 +1757,6 @@ void main() {
             }
         });
 
-        let startTime = performance.now();
-        let lastFrameTime = performance.now();
-
-        
         function smoothstep(edge0, edge1, x) {
             const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
             return t * t * (3.0 - 2.0 * t);
@@ -1766,6 +1769,8 @@ void main() {
         const TARGET_FPS = 60;
         const FRAME_INTERVAL_MS = 1000.0 / TARGET_FPS;
         let lastRenderTimeMs = 0;
+        let lastFrameTime = performance.now();
+        let accumulatedTime = 0.0;
 
         function render(nowMs) {
             if (!isPageVisible) {
@@ -1779,13 +1784,18 @@ void main() {
             if (lastRenderTimeMs > 0 && (now - lastRenderTimeMs < FRAME_INTERVAL_MS - 1.0)) {
                 return;
             }
+
+            const isResuming = isVisibilityResumed || (lastFrameTime > 0 && (now - lastFrameTime > 500.0));
+            isVisibilityResumed = false;
+
+            const dt = (isResuming || lastFrameTime <= 0) ? 0.016 : Math.min((now - lastFrameTime) * 0.001, 0.1);
+            lastFrameTime = now;
             lastRenderTimeMs = now;
 
-            const dt = (lastFrameTime > 0) ? Math.min((now - lastFrameTime) * 0.001, 0.1) : 0.016;
-            lastFrameTime = now;
+            accumulatedTime += dt;
+            if (accumulatedTime > 86400.0) accumulatedTime -= 86400.0;
 
-            const lerpFactor = 1.0 - Math.exp(-3.0 * dt);
-            const currentTime = (now - startTime) * 0.001;
+            const lerpFactor = isResuming ? 1.0 : (1.0 - Math.exp(-3.0 * dt));
 
             if (state.timeMode === 0) {
                 currentWeather.timeOfDay = calculateRealTimeOfDay();
@@ -1795,7 +1805,7 @@ void main() {
                 if (valTime) valTime.innerText = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
                 if (sliderTime) sliderTime.value = currentHour.toFixed(1);
             } else if (state.timeMode === 1) {
-                currentWeather.timeOfDay = (currentTime / 15.0) % 1.0;
+                currentWeather.timeOfDay = (accumulatedTime / 15.0) % 1.0;
                 const currentHour = currentWeather.timeOfDay * 24.0;
                 const hh = Math.floor(currentHour);
                 const mm = Math.floor((currentHour - hh) * 60);
@@ -1830,14 +1840,47 @@ void main() {
             let effectiveSunset = targetWeather.sunsetHour;
             let effectiveMoonPhase = targetWeather.moonPhase;
 
-            currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
-            currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
-            currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * lerpFactor;
+            if (isResuming) {
+                currentWeather.cloudDensity = effectiveCloud;
+                currentWeather.rainIntensity = effectiveRain;
+                currentWeather.windSpeed = effectiveWindSpeed;
+                currentWeather.windRad = effectiveWindRad;
+                currentWeather.sunriseHour = effectiveSunrise;
+                currentWeather.sunsetHour = effectiveSunset;
+                currentWeather.moonPhase = effectiveMoonPhase;
+                currentWeather.moonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.causticBoost = state.causticBoost;
+                currentWeather.rayBoost = state.rayBoost;
+                currentWeather.glintBoost = state.glintBoost;
+                currentWeather.starBoost = state.starBoost;
+                currentWeather.rippleBoost = state.rippleBoost;
+            } else {
+                currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
+                currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
+                currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * lerpFactor;
 
-            let dRad = effectiveWindRad - currentWeather.windRad;
-            while (dRad > Math.PI) dRad -= 2.0 * Math.PI;
-            while (dRad < -Math.PI) dRad += 2.0 * Math.PI;
-            currentWeather.windRad += dRad * lerpFactor;
+                let dRad = effectiveWindRad - currentWeather.windRad;
+                while (dRad > Math.PI) dRad -= 2.0 * Math.PI;
+                while (dRad < -Math.PI) dRad += 2.0 * Math.PI;
+                currentWeather.windRad += dRad * lerpFactor;
+
+                currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
+                currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
+
+                let dMoon = effectiveMoonPhase - currentWeather.moonPhase;
+                if (dMoon > 0.5) dMoon -= 1.0;
+                else if (dMoon < -0.5) dMoon += 1.0;
+                currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
+
+                const effectiveMoonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
+
+                currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * lerpFactor;
+                currentWeather.rayBoost += (state.rayBoost - currentWeather.rayBoost) * lerpFactor;
+                currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * lerpFactor;
+                currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * lerpFactor;
+                currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * lerpFactor;
+            }
 
             const cosW = Math.cos(currentWeather.windRad);
             const sinW = Math.sin(currentWeather.windRad) * 0.5;
@@ -1848,23 +1891,6 @@ void main() {
 
             currentWeather.windDir[0] = cosW;
             currentWeather.windDir[1] = sinW;
-
-            currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
-            currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
-
-            let dMoon = effectiveMoonPhase - currentWeather.moonPhase;
-            if (dMoon > 0.5) dMoon -= 1.0;
-            else if (dMoon < -0.5) dMoon += 1.0;
-            currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
-
-            const effectiveMoonBoost = calculateMoonBoost(currentWeather.cloudDensity, currentWeather.moonPhase) * state.moonBoost;
-            currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
-
-            currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * lerpFactor;
-            currentWeather.rayBoost += (state.rayBoost - currentWeather.rayBoost) * lerpFactor;
-            currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * lerpFactor;
-            currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * lerpFactor;
-            currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * lerpFactor;
 
             const currentHour = currentWeather.timeOfDay * 24.0;
             const sunrise = currentWeather.sunriseHour;
@@ -1947,7 +1973,7 @@ void main() {
             const mistB = mix(0.60, mistDayB, mistProgress);
 
             if (gl && program) {
-                gl.uniform1f(uTimeLoc, currentTime);
+                gl.uniform1f(uTimeLoc, accumulatedTime);
                 gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
                 gl.uniform1f(uWindSpeedLoc, currentWeather.windSpeed);
                 gl.uniform3f(uWindParamsLoc, normWindX, normWindY, windSlant);
