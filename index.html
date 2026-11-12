@@ -531,8 +531,7 @@ void main() {
 
     float effectiveCloudFactor = 1.0;
     if (dayFactor > 0.01) {
-        float windSpeed = u_windSpeed;
-        vec2 cloudUV = vec2(uv.x * imageAspect, uv.y) * 1.25 + mod(u_windParams.xy * (animTime * windSpeed), 2048.0);
+        vec2 cloudUV = vec2(uv.x * imageAspect, uv.y) * 1.25 + u_windParams.xy;
 
         float cloudNoise = fbm(cloudUV);
         float cloudThreshold = mix(0.62, 0.30, finalCloudCover);
@@ -923,7 +922,6 @@ void main() {
 
         function resize() {
             if (!gl) return;
-            // const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
             const dpr = window.devicePixelRatio || 1;
             const w = Math.round(window.innerWidth * dpr);
             const h = Math.round(window.innerHeight * dpr);
@@ -1058,6 +1056,8 @@ void main() {
         let lastRenderTimeMs = 0;
         let lastFrameTime = performance.now();
         let accumulatedTime = 0.0;
+        let cloudOffsetX = 0.0;
+        let cloudOffsetY = 0.0;
 
         function render(nowMs) {
             if (!isPageVisible) {
@@ -1157,6 +1157,13 @@ void main() {
             currentWeather.windDir[0] = cosW;
             currentWeather.windDir[1] = sinW;
 
+            cloudOffsetX += normWindX * currentWeather.windSpeed * dt;
+            cloudOffsetY += normWindY * currentWeather.windSpeed * dt;
+            if (cloudOffsetX > 2048.0) cloudOffsetX -= 2048.0;
+            else if (cloudOffsetX < -2048.0) cloudOffsetX += 2048.0;
+            if (cloudOffsetY > 2048.0) cloudOffsetY -= 2048.0;
+            else if (cloudOffsetY < -2048.0) cloudOffsetY += 2048.0;
+
             currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
             currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
 
@@ -1252,7 +1259,7 @@ void main() {
                 gl.uniform1f(uTimeLoc, accumulatedTime);
                 gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
                 gl.uniform1f(uWindSpeedLoc, currentWeather.windSpeed);
-                gl.uniform3f(uWindParamsLoc, normWindX, normWindY, windSlant);
+                gl.uniform3f(uWindParamsLoc, cloudOffsetX, cloudOffsetY, windSlant);
                 gl.uniform1f(uMoonBoostLoc, currentWeather.moonBoost);
 
                 gl.uniform3f(uAmbientLoc, ambR, ambG, ambB);
