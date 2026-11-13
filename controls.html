@@ -532,6 +532,12 @@ float getCharacterMask(vec2 uv) {
     m = min(m, capsuleMask(uv, vec2(0.37, 0.31), vec2(0.50, 0.30), 0.090, 0.05));
     m = min(m, capsuleMask(uv, vec2(0.47, 0.42), vec2(0.58, 0.58), 0.100, 0.05));
     m = min(m, capsuleMask(uv, vec2(0.56, 0.55), vec2(0.66, 0.32), 0.100, 0.06));
+
+    float dxHead = (uv.x - 0.445) * 1.5;
+    float headCeil = 0.904 - dxHead * dxHead * 1.5;
+    float aboveHead = smoothstep(headCeil - 0.008, headCeil + 0.012, uv.y) * smoothstep(0.36, 0.39, uv.x) * (1.0 - smoothstep(0.48, 0.51, uv.x));
+    m = clamp(m + (1.0 - m) * aboveHead, 0.0, 1.0);
+
     return m;
 }
 
