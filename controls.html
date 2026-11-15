@@ -4,8 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Dynamic Weather Wallpaper - Full Controls</title>
-    <script src="wallpaper.js"></script>
+    <script src="wallpaper.js?v=20261115c"></script>
     <style>
         * {
             margin: 0;
@@ -31,20 +34,32 @@
             z-index: 1;
         }
 
+        .webgl-fallback {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d0d7de;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            z-index: 2;
+        }
+
         #weather-hud {
             position: fixed;
-            top: 16px;
-            right: 16px;
-            max-height: calc(100vh - 32px);
+            top: 12px;
+            right: 12px;
+            max-height: calc(100vh - 24px);
             width: 320px;
             background: #000000;
             border: 1px solid rgba(255, 255, 255, 0.20);
             border-radius: 10px;
-            padding: 14px 16px;
+            padding: 10px 14px;
             color: #e0e5f0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-            font-size: 12px;
-            line-height: 1.5;
+            font-size: 11.5px;
+            line-height: 1.35;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
             user-select: none;
             transition: opacity 0.25s ease;
@@ -69,8 +84,8 @@
         .hud-title {
             font-weight: bold;
             color: #70b0ff;
-            font-size: 13px;
-            margin-bottom: 6px;
+            font-size: 12.5px;
+            margin-bottom: 4px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -99,8 +114,8 @@
         }
 
         .hud-section {
-            margin-top: 10px;
-            padding-top: 8px;
+            margin-top: 6px;
+            padding-top: 6px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
         }
 
@@ -110,21 +125,21 @@
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .control-row {
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         .control-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .control-label {
@@ -151,21 +166,47 @@
             text-decoration: underline;
         }
 
+        .hud-btn {
+            background: rgba(112, 176, 255, 0.12);
+            border: 1px solid rgba(112, 176, 255, 0.35);
+            color: #81d4fa;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .hud-btn:hover {
+            background: rgba(112, 176, 255, 0.25);
+            border-color: #81d4fa;
+        }
+
+        .hud-btn.active {
+            background: rgba(0, 230, 118, 0.22);
+            border-color: #00e676;
+            color: #00e676;
+            font-weight: bold;
+        }
+
         input[type="range"] {
             -webkit-appearance: none;
             appearance: none;
             width: 100%;
-            height: 4px;
+            height: 3.5px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
             outline: none;
+            display: block;
         }
 
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             border-radius: 50%;
             background: #70b0ff;
             cursor: pointer;
@@ -179,23 +220,25 @@
         <div class="hud-title">
             <div class="hud-title-left">
                 <span id="status-dot" class="hud-status"></span>
-                <span id="status-text">Connecting to Open-Meteo...</span>
+                <span id="status-text">Connecting to AWC METAR...</span>
             </div>
             <span id="img-status" style="font-size: 10px; color: #81d4fa;"></span>
         </div>
 
-        <div id="quick-info" style="font-size: 11px; color: #b0bec5; margin-bottom: 6px;">
+        <div id="quick-info" style="font-size: 11px; color: #b0bec5; margin-bottom: 4px; line-height: 1.35;">
+            <div id="metar-info">Station: VVNB | Temp: --°C | Vis: --</div>
             <div id="cloud-info">Cloud: Loading...</div>
             <div id="rain-info">Rain: Loading...</div>
             <div id="wind-info">Wind: Loading...</div>
             <div id="sun-info">Sun: Loading...</div>
             <div id="moon-info">Moon Phase: Loading...</div>
-            <div id="time-info">Local Time: --:--:--</div>
+            <div id="time-info">Location Time: --:--:--</div>
         </div>
 
         <div class="hud-section">
             <div class="section-header">
                 <span>Environment & Weather</span>
+                <span id="badge-scale-mode" class="badge-mode" title="Press [0] to toggle">[0] Cover (21:9)</span>
             </div>
 
             <div class="control-row">
@@ -218,6 +261,22 @@
                     </div>
                 </div>
                 <input type="range" id="slider-cloud" min="0" max="100" step="1" value="50">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Cloud Speed Scale:</span>
+                    <span id="val-cloud-speed" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-cloud-speed" min="0" max="300" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Cloud Shadow:</span>
+                    <span id="val-cloud-shadow" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-cloud-shadow" min="0" max="300" step="5" value="100">
             </div>
 
             <div class="control-row">
@@ -258,9 +317,9 @@
 
             <div class="control-row">
                 <div class="control-header">
-                    <span class="control-label"><span class="key-tag">[5]</span> Morning Mist:</span>
+                    <span class="control-label"><span class="key-tag">[5]</span> Mist & Haze:</span>
                     <div>
-                        <span id="badge-mist-mode" class="badge-mode">Auto (5h-8h)</span>
+                        <span id="badge-mist-mode" class="badge-mode">Auto (Real Data)</span>
                         <span id="val-mist" class="badge-val">0%</span>
                     </div>
                 </div>
@@ -301,6 +360,38 @@
 
             <div class="control-row">
                 <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[M]</span> Shooting Stars:</span>
+                    <span id="val-meteor" class="badge-val">100%</span>
+                </div>
+                <input type="range" id="slider-meteor" min="0" max="200" step="5" value="100">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[P]</span> Meteor Shower:</span>
+                    <button type="button" id="btn-meteor-shower" class="hud-btn" title="Toggle permanent meteor shower (Shortcut: [P])">Permanent: OFF</button>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[O]</span> Star Pity:</span>
+                    <button type="button" id="btn-spawn-star" class="hud-btn" title="Spawn a test shooting star (Shortcut: [O])">Spawn Star</button>
+                </div>
+                <div class="control-header" style="margin-top: 4px;">
+                    <span class="control-label" id="label-star-pity" style="color: #9bb;">Pity: 10% | Wait: 30s | Max: 30m</span>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label"><span class="key-tag">[D]</span> Clinging Rain:</span>
+                    <button type="button" id="btn-wing-droplets" class="hud-btn active" title="Toggle clinging rain droplets on mecha wing (Shortcut: [D])">Drops: ON [v12]</button>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
                     <span class="control-label"><span class="key-tag">[S]</span> Night Stars:</span>
                     <span id="val-star" class="badge-val">100%</span>
                 </div>
@@ -327,11 +418,17 @@
 
     <canvas id="glcanvas"></canvas>
     <script>
+        const ICAO_STATION = "VVNB";
+        const AWC_LOCAL_PROXY = "http://127.0.0.1:8765/metar";
+        const AWC_API_BASE = "https://aviationweather.gov/api/data/metar";
         const LATITUDE = 21.0285;
         const LONGITUDE = 105.8542;
-        const TARGET_FPS = 60;
-        const MAX_DPR = 1.5;
-        const WEATHER_UPDATE_INTERVAL_MINUTES = 10;
+        const DEFAULT_UTC_OFFSET_SECONDS = 7 * 3600;
+
+        const TARGET_FPS = 30;
+        const IDLE_FPS = 30;
+        const MAX_DPR = 1.75;
+        const WEATHER_UPDATE_INTERVAL_MINUTES = 15;
 
         const SHOW_HUD = true;
         const SCALE_MODE = 0;
@@ -341,6 +438,8 @@
 
         const CLOUD_MODE = 0;
         const MANUAL_CLOUD = 0.50;
+        const CLOUD_SPEED_SCALE = 1.0;
+        const CLOUD_SHADOW_BOOST = 1.0;
 
         const RAIN_MODE = 0;
         const MANUAL_RAIN = 0.0;
@@ -351,22 +450,56 @@
 
         const MIST_MODE = 0;
         const MANUAL_MIST = 0.0;
-
         const MOON_BOOST = 1.0;
         const CAUSTIC_BOOST = 1.0;
         const RAY_BOOST = 1.0;
         const GLINT_BOOST = 1.0;
         const STAR_BOOST = 1.0;
         const RIPPLE_BOOST = 1.0;
-        const FIREFLY_BOOST = 1.0;
+        const FIREFLY_BOOST = 2.0;
+        const METEOR_BOOST = 1.0;
 
+        const CLOUD_DRIFT_SPEED_SCALE = 2.0 / 5.0;
         const WEATHER_UPDATE_INTERVAL_MS = WEATHER_UPDATE_INTERVAL_MINUTES * 60 * 1000;
+        const WEATHER_FETCH_TIMEOUT_MS = 10000;
+        const MIN_VISIBILITY_FETCH_INTERVAL_MS = 60000;
+        const MAX_METAR_AGE_MINUTES = 90;
+        const WEATHER_CACHE_KEY = "weather_wallpaper_awc_cache_v4";
+        const TIME_WRAP_SECONDS = 3840.0;
+        const NOISE_TEX_SIZE = 256;
+        const SYNODIC_MONTH_MS = 29.530588853 * 86400000;
+        const KNOWN_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0);
+        const KNOTS_TO_KMH = 1.852;
 
-        function getAstronomicalMoonPhase(date = new Date()) {
-            const SYNODIC_MONTH_MS = 29.530588853 * 86400000;
-            const KNOWN_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0);
-            const phase = ((date.getTime() - KNOWN_NEW_MOON_MS) % SYNODIC_MONTH_MS) / SYNODIC_MONTH_MS;
+        function getAstronomicalMoonPhase(nowMs = Date.now()) {
+            const phase = ((nowMs - KNOWN_NEW_MOON_MS) % SYNODIC_MONTH_MS) / SYNODIC_MONTH_MS;
             return phase < 0 ? phase + 1.0 : phase;
+        }
+
+        function calculateSunTimes(lat, lon, nowMs, utcOffsetSeconds) {
+            const deg2rad = Math.PI / 180.0;
+            const rad2deg = 180.0 / Math.PI;
+            const localDate = new Date(nowMs + utcOffsetSeconds * 1000);
+            const startOfYear = Date.UTC(localDate.getUTCFullYear(), 0, 0);
+            const dayOfYear = Math.floor((Date.UTC(localDate.getUTCFullYear(), localDate.getUTCMonth(), localDate.getUTCDate()) - startOfYear) / 86400000);
+
+            const gamma = (2.0 * Math.PI / 365.0) * (dayOfYear - 1);
+            const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
+                - 0.014615 * Math.cos(2.0 * gamma) - 0.040849 * Math.sin(2.0 * gamma));
+            const decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
+                - 0.006758 * Math.cos(2.0 * gamma) + 0.000907 * Math.sin(2.0 * gamma)
+                - 0.002697 * Math.cos(3.0 * gamma) + 0.00148 * Math.sin(3.0 * gamma);
+
+            const zenith = 90.833 * deg2rad;
+            const cosH = (Math.cos(zenith) / (Math.cos(lat * deg2rad) * Math.cos(decl))) - Math.tan(lat * deg2rad) * Math.tan(decl);
+            const clampedCosH = Math.max(-1.0, Math.min(1.0, cosH));
+            const haDeg = Math.acos(clampedCosH) * rad2deg;
+
+            const tzHours = utcOffsetSeconds / 3600.0;
+            const solarNoonMin = 720.0 - 4.0 * lon - eqTime + tzHours * 60.0;
+            const sunriseHour = Math.max(0.0, Math.min(23.99, (solarNoonMin - haDeg * 4.0) / 60.0));
+            const sunsetHour = Math.max(0.0, Math.min(23.99, (solarNoonMin + haDeg * 4.0) / 60.0));
+            return { sunriseHour, sunsetHour };
         }
 
         function calculateMoonBoost(moonPhaseVal) {
@@ -376,8 +509,9 @@
         }
 
         function formatHour(h) {
-            const hh = Math.floor(h);
-            const mm = Math.round((h - hh) * 60);
+            const totalMinutes = Math.round(h * 60) % 1440;
+            const hh = Math.floor(totalMinutes / 60);
+            const mm = totalMinutes % 60;
             return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
         }
 
@@ -393,7 +527,7 @@
         function getWindCompass(deg) {
             const val = Math.floor((deg / 22.5) + 0.5);
             const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-            return arr[(val % 16)];
+            return arr[(val % 16 + 16) % 16];
         }
 
         function getRainDescription(mm) {
@@ -404,17 +538,191 @@
             return "Violent Rain";
         }
 
-        function calculateRealTimeOfDay() {
-            const now = new Date();
-            if (targetWeather.utcOffsetSeconds !== null && targetWeather.utcOffsetSeconds !== undefined) {
-                const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-                const targetDate = new Date(utcMs + targetWeather.utcOffsetSeconds * 1000);
-                const seconds = targetDate.getHours() * 3600 + targetDate.getMinutes() * 60 + targetDate.getSeconds() + targetDate.getMilliseconds() * 0.001;
-                return seconds / 86400.0;
+        function getMetarObsEpochSec(metar) {
+            if (!metar || typeof metar !== "object") return NaN;
+            if (typeof metar.obsTime === "number" && Number.isFinite(metar.obsTime)) {
+                return metar.obsTime > 1e12 ? (metar.obsTime / 1000.0) : metar.obsTime;
             }
-            const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() * 0.001;
-            return seconds / 86400.0;
+            if (typeof metar.reportTime === "string" && metar.reportTime.trim() !== "") {
+                const normalized = metar.reportTime.includes("T")
+                    ? metar.reportTime
+                    : metar.reportTime.replace(" ", "T") + "Z";
+                const parsedMs = Date.parse(normalized);
+                if (Number.isFinite(parsedMs)) return parsedMs / 1000.0;
+            }
+            return NaN;
         }
+
+        function formatObsAgeLabel(obsTimeSec) {
+            if (typeof obsTimeSec !== "number" || !Number.isFinite(obsTimeSec)) return "";
+            const ageMin = Math.max(0, Math.round((Date.now() / 1000.0 - obsTimeSec) / 60.0));
+            if (ageMin < 60) return ` (${ageMin}m ago)`;
+            const hrs = Math.floor(ageMin / 60);
+            const mins = ageMin % 60;
+            return ` (${hrs}h ${mins}m ago)`;
+        }
+
+        function parseMetarCloudCover(clouds, wxString, rawOb) {
+            if (typeof rawOb === "string") {
+                const rawTokens = rawOb.trim().toUpperCase().split(/\s+/);
+                if (rawTokens.includes("CAVOK") || rawTokens.includes("NSC") || rawTokens.includes("NCD")) {
+                    return 0.05;
+                }
+            }
+            const coverWeights = {
+                SKC: 0.02,
+                CLR: 0.02,
+                FEW: 0.20,
+                SCT: 0.45,
+                BKN: 0.78,
+                OVC: 0.96,
+                OVX: 1.00,
+                VV: 1.00
+            };
+            let maxCover = 0.05;
+            if (Array.isArray(clouds) && clouds.length > 0) {
+                for (const layer of clouds) {
+                    if (layer && typeof layer.cover === "string") {
+                        const w = coverWeights[layer.cover.toUpperCase()];
+                        if (w !== undefined && w > maxCover) {
+                            maxCover = w;
+                        }
+                    }
+                }
+            }
+            if (typeof wxString === "string" && wxString.trim() !== "") {
+                const wxTokens = wxString.trim().toUpperCase().split(/\s+/);
+                for (const tok of wxTokens) {
+                    if (tok.includes("FG") || tok.includes("TS")) {
+                        maxCover = Math.max(maxCover, 0.92);
+                    }
+                }
+            }
+            return maxCover;
+        }
+
+        function parseMetarRainMm(wxString) {
+            if (typeof wxString !== "string" || wxString.trim() === "") return 0.0;
+            const tokens = wxString.trim().toUpperCase().split(/\s+/);
+            let maxMm = 0.0;
+
+            for (const token of tokens) {
+                if (!token) continue;
+                if (token.startsWith("VC")) {
+                    if (token === "VCTS") maxMm = Math.max(maxMm, 0.5);
+                    else if (token === "VCSH") maxMm = Math.max(maxMm, 0.4);
+                    continue;
+                }
+
+                const isHeavy = token.startsWith("+");
+                const isLight = token.startsWith("-");
+                const core = (isHeavy || isLight) ? token.slice(1) : token;
+                if (!core) continue;
+
+                const hasTs = core.includes("TS");
+                const hasRa = core.includes("RA");
+                const hasDz = core.includes("DZ");
+                const hasGr = core.includes("GR") || core.includes("GS") || core.includes("PL") || core.includes("UP");
+                const isStandaloneSh = core === "SH" || core === "SHVC";
+
+                if (hasTs) {
+                    if (hasRa) {
+                        maxMm = Math.max(maxMm, isHeavy ? 16.0 : (isLight ? 2.2 : 9.0));
+                    } else {
+                        maxMm = Math.max(maxMm, isHeavy ? 2.0 : 0.8);
+                    }
+                } else if (hasRa) {
+                    maxMm = Math.max(maxMm, isHeavy ? 15.0 : (isLight ? 1.8 : 7.5));
+                } else if (hasDz) {
+                    maxMm = Math.max(maxMm, isHeavy ? 1.2 : (isLight ? 0.3 : 0.6));
+                } else if (isStandaloneSh) {
+                    maxMm = Math.max(maxMm, isHeavy ? 10.0 : (isLight ? 1.5 : 5.0));
+                } else if (hasGr) {
+                    maxMm = Math.max(maxMm, isHeavy ? 10.0 : (isLight ? 1.5 : 5.0));
+                }
+            }
+
+            return maxMm;
+        }
+
+        function parseMetarVisibilityMiles(rawVisib) {
+            if (typeof rawVisib === "number" && Number.isFinite(rawVisib)) return rawVisib;
+            if (typeof rawVisib === "string") {
+                const trimmed = rawVisib.trim();
+                if (trimmed === "6+" || trimmed === "10+") return 10.0;
+                const parsed = parseFloat(trimmed.replace("+", ""));
+                if (Number.isFinite(parsed)) return parsed;
+            }
+            return 10.0;
+        }
+
+        function parseMetarMistState(visibMiles, wxString, tempC, dewpC) {
+            let mist = 0.0;
+            let warmth = 0.0;
+            let label = "Clear";
+
+            if (visibMiles < 6.2) {
+                const visNorm = Math.max(0.0, Math.min(1.0, (6.2 - visibMiles) / 5.7));
+                mist = Math.max(mist, Math.pow(visNorm, 0.85) * 0.95);
+                label = `Vis ${visibMiles.toFixed(1)} mi`;
+            }
+
+            if (typeof wxString === "string" && wxString.trim() !== "") {
+                const tokens = wxString.trim().toUpperCase().split(/\s+/);
+                for (const tok of tokens) {
+                    if (tok.includes("MIFG") || tok.includes("BCFG") || tok.includes("PRFG")) {
+                        mist = Math.max(mist, 0.65);
+                        label = "Shallow Fog";
+                    } else if (tok.includes("FG")) {
+                        mist = Math.max(mist, 0.88);
+                        label = "Dense Fog";
+                    } else if (tok.includes("BR")) {
+                        mist = Math.max(mist, 0.48);
+                        label = "Mist";
+                    }
+
+                    if (tok.includes("HZ") || tok.includes("FU") || tok.includes("DU")) {
+                        mist = Math.max(mist, 0.42);
+                        warmth = Math.max(warmth, 0.85);
+                        label = "Haze";
+                    }
+                }
+            }
+
+            if (typeof tempC === "number" && typeof dewpC === "number") {
+                const spread = tempC - dewpC;
+                if (spread <= 2.5) {
+                    const humidMist = 0.36 * (1.0 - Math.max(0.0, spread) / 2.5);
+                    if (humidMist > mist) {
+                        mist = humidMist;
+                        if (label === "Clear") label = `Humid ΔT ${spread.toFixed(1)}°C`;
+                    }
+                }
+            }
+
+            return {
+                density: Math.max(0.0, Math.min(1.0, mist)),
+                warmth: Math.max(0.0, Math.min(1.0, warmth)),
+                label
+            };
+        }
+
+        function getTargetLocationDate(nowMs = Date.now()) {
+            const offsetSec = (targetWeather.utcOffsetSeconds !== null && targetWeather.utcOffsetSeconds !== undefined)
+                ? targetWeather.utcOffsetSeconds
+                : DEFAULT_UTC_OFFSET_SECONDS;
+            return new Date(nowMs + offsetSec * 1000);
+        }
+
+        function calculateRealTimeOfDay(nowMs = Date.now()) {
+            const offsetMs = ((targetWeather.utcOffsetSeconds !== null && targetWeather.utcOffsetSeconds !== undefined)
+                ? targetWeather.utcOffsetSeconds
+                : DEFAULT_UTC_OFFSET_SECONDS) * 1000;
+            const dayMs = (((nowMs + offsetMs) % 86400000) + 86400000) % 86400000;
+            return dayMs / 86400000.0;
+        }
+
+        const initialSun = calculateSunTimes(LATITUDE, LONGITUDE, Date.now(), DEFAULT_UTC_OFFSET_SECONDS);
 
         let isHudVisible = SHOW_HUD;
 
@@ -423,10 +731,12 @@
             manualHour: MANUAL_HOUR,
             cloudMode: CLOUD_MODE,
             manualCloud: MANUAL_CLOUD,
+            cloudSpeedScale: CLOUD_SPEED_SCALE,
+            cloudShadowBoost: CLOUD_SHADOW_BOOST,
             rainMode: RAIN_MODE,
             manualRain: Math.min(MANUAL_RAIN / 3.0, 20.0 / 3.0),
             windMode: WIND_MODE,
-            manualWindSpeed: Math.max(0.08, Math.min(0.35, MANUAL_WIND_SPEED_KMH / 50.0)),
+            manualWindSpeed: Math.min(0.35, MANUAL_WIND_SPEED_KMH / 50.0),
             manualWindDeg: MANUAL_WIND_DEG,
             mistMode: MIST_MODE,
             manualMist: MANUAL_MIST,
@@ -437,47 +747,132 @@
             starBoost: STAR_BOOST,
             rippleBoost: RIPPLE_BOOST,
             fireflyBoost: FIREFLY_BOOST,
+            meteorBoost: METEOR_BOOST,
+            meteorShowerPermanent: false,
+            wingDropletsEnabled: true,
             scaleMode: SCALE_MODE
         };
 
         let targetWeather = {
+            sourceName: "AWC",
+            stationId: ICAO_STATION,
+            obsTimeSec: null,
             cloudDensity: 0.5,
             rainIntensity: 0.0,
             windSpeed: 0.15,
             windRad: 45.0 * (Math.PI / 180.0),
-            sunriseHour: 6.0,
-            sunsetHour: 18.0,
+            isVariableWind: false,
+            gustKmh: 0.0,
+            tempC: null,
+            dewpC: null,
+            visibMiles: 10.0,
+            wxString: "",
+            apiMist: 0.0,
+            mistWarmth: 0.0,
+            mistLabel: "Clear",
+            sunriseHour: initialSun.sunriseHour,
+            sunsetHour: initialSun.sunsetHour,
             moonPhase: getAstronomicalMoonPhase(),
-            utcOffsetSeconds: null
+            utcOffsetSeconds: DEFAULT_UTC_OFFSET_SECONDS
         };
 
         let currentWeather = {
             timeOfDay: 0.5,
             cloudDensity: 0.5,
+            cloudSpeedScale: CLOUD_SPEED_SCALE,
+            cloudShadowBoost: CLOUD_SHADOW_BOOST,
             rainIntensity: 0.0,
             windSpeed: 0.15,
             windRad: 45.0 * (Math.PI / 180.0),
-            sunriseHour: 6.0,
-            sunsetHour: 18.0,
+            apiMist: 0.0,
+            mistWarmth: 0.0,
+            sunriseHour: initialSun.sunriseHour,
+            sunsetHour: initialSun.sunsetHour,
             moonPhase: getAstronomicalMoonPhase(),
-            mistOverride: MANUAL_MIST,
-            moonBoost: MOON_BOOST,
+            moonBoost: calculateMoonBoost() * MOON_BOOST,
+            moonUserBoost: MOON_BOOST,
             causticBoost: CAUSTIC_BOOST,
             rayBoost: RAY_BOOST,
             glintBoost: GLINT_BOOST,
             starBoost: STAR_BOOST,
             rippleBoost: RIPPLE_BOOST,
-            fireflyBoost: FIREFLY_BOOST
+            fireflyBoost: FIREFLY_BOOST,
+            meteorBoost: METEOR_BOOST,
+            meteorShowerPermanent: false,
+            wingDropletsEnabled: true
         };
+
+        function loadCachedWeather() {
+            try {
+                const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+                if (!raw) return false;
+                const cached = JSON.parse(raw);
+                if (!cached || cached.stationId !== ICAO_STATION) return false;
+                if (typeof cached.sourceName === "string") targetWeather.sourceName = cached.sourceName;
+                if (typeof cached.obsTimeSec === "number") targetWeather.obsTimeSec = cached.obsTimeSec;
+                if (typeof cached.cloudDensity === "number") targetWeather.cloudDensity = cached.cloudDensity;
+                if (typeof cached.rainIntensity === "number") targetWeather.rainIntensity = cached.rainIntensity;
+                if (typeof cached.windSpeed === "number") targetWeather.windSpeed = cached.windSpeed;
+                if (typeof cached.windRad === "number") targetWeather.windRad = cached.windRad;
+                if (typeof cached.isVariableWind === "boolean") targetWeather.isVariableWind = cached.isVariableWind;
+                if (typeof cached.gustKmh === "number") targetWeather.gustKmh = cached.gustKmh;
+                if (typeof cached.tempC === "number") targetWeather.tempC = cached.tempC;
+                if (typeof cached.dewpC === "number") targetWeather.dewpC = cached.dewpC;
+                if (typeof cached.visibMiles === "number") targetWeather.visibMiles = cached.visibMiles;
+                if (typeof cached.wxString === "string") targetWeather.wxString = cached.wxString;
+                if (typeof cached.apiMist === "number") targetWeather.apiMist = cached.apiMist;
+                if (typeof cached.mistWarmth === "number") targetWeather.mistWarmth = cached.mistWarmth;
+                if (typeof cached.mistLabel === "string") targetWeather.mistLabel = cached.mistLabel;
+
+                currentWeather.cloudDensity = targetWeather.cloudDensity;
+                currentWeather.rainIntensity = targetWeather.rainIntensity;
+                currentWeather.windSpeed = targetWeather.windSpeed;
+                currentWeather.windRad = targetWeather.windRad;
+                currentWeather.apiMist = targetWeather.apiMist;
+                currentWeather.mistWarmth = targetWeather.mistWarmth;
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function saveCachedWeather() {
+            try {
+                localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
+                    sourceName: targetWeather.sourceName,
+                    stationId: ICAO_STATION,
+                    obsTimeSec: targetWeather.obsTimeSec,
+                    cloudDensity: targetWeather.cloudDensity,
+            cloudShadowBoost: CLOUD_SHADOW_BOOST,
+                    rainIntensity: targetWeather.rainIntensity,
+                    windSpeed: targetWeather.windSpeed,
+                    windRad: targetWeather.windRad,
+                    isVariableWind: targetWeather.isVariableWind,
+                    gustKmh: targetWeather.gustKmh,
+                    tempC: targetWeather.tempC,
+                    dewpC: targetWeather.dewpC,
+                    visibMiles: targetWeather.visibMiles,
+                    wxString: targetWeather.wxString,
+                    apiMist: targetWeather.apiMist,
+                    mistWarmth: targetWeather.mistWarmth,
+                    mistLabel: targetWeather.mistLabel
+                }));
+            } catch (e) { }
+        }
+
+        const hasLoadedCache = loadCachedWeather();
 
         const canvas = document.getElementById("glcanvas");
         const vsSource = `#version 300 es
 in vec2 a_position;
 out vec2 v_uv;
+out vec2 v_aspectUV;
 uniform vec4 u_uvTransform;
+uniform float u_sceneAspect;
 void main() {
     vec2 screenUV = a_position * 0.5 + 0.5;
     v_uv = screenUV * u_uvTransform.xy + u_uvTransform.zw;
+    v_aspectUV = vec2(v_uv.x * u_sceneAspect, v_uv.y);
     gl_Position = vec4(a_position, 0.0, 1.0);
 }`;
         const bakeVsSource = `#version 300 es
@@ -492,6 +887,8 @@ precision highp float;
 in vec2 v_uv;
 out vec4 fragColor;
 uniform sampler2D u_texture;
+uniform sampler2D u_customMasksTexture;
+uniform int u_useDefaultMasks;
 
 #define DEFAULT_IMAGE_ASPECT 2.155
 
@@ -499,46 +896,16 @@ float getLuminance(vec3 color) {
     return dot(color, vec3(0.299, 0.587, 0.114));
 }
 
-float sdCapsule(vec2 p, vec2 a, vec2 b, float r) {
-    vec2 pa = p - a, ba = b - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h) - r;
-}
-
-float capsuleMask(vec2 uv, vec2 a, vec2 b, float r, float soft) {
-    vec2 S = vec2(DEFAULT_IMAGE_ASPECT, 1.0);
-    return smoothstep(0.0, soft, sdCapsule(uv * S, a * S, b * S, r));
-}
-
-float getMetalWingMask(vec2 uv) {
-    if (uv.x < 0.08 || uv.x > 0.42 || uv.y < 0.22 || uv.y > 0.74) return 1.0;
-    float m = 1.0;
-    m = min(m, capsuleMask(uv, vec2(0.12, 0.48), vec2(0.31, 0.57), 0.065, 0.03));
-    m = min(m, capsuleMask(uv, vec2(0.15, 0.63), vec2(0.33, 0.60), 0.060, 0.03));
-    m = min(m, capsuleMask(uv, vec2(0.18, 0.30), vec2(0.32, 0.51), 0.065, 0.03));
-    m = min(m, capsuleMask(uv, vec2(0.26, 0.42), vec2(0.36, 0.58), 0.075, 0.03));
-    return m;
-}
-
-float getCharacterMask(vec2 uv) {
-    if (uv.x < 0.06 || uv.x > 0.78 || uv.y < 0.15 || uv.y > 0.96) return 1.0;
-
-    float m = getMetalWingMask(uv);
-    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.37, 0.60), 0.090, 0.05));
-    m = min(m, capsuleMask(uv, vec2(0.39, 0.82), vec2(0.46, 0.91), 0.045, 0.03));
-    m = min(m, capsuleMask(uv, vec2(0.37, 0.60), vec2(0.44, 0.55), 0.060, 0.04));
-    m = min(m, capsuleMask(uv, vec2(0.41, 0.66), vec2(0.50, 0.68), 0.035, 0.03));
-
-    m = min(m, capsuleMask(uv, vec2(0.37, 0.31), vec2(0.50, 0.30), 0.090, 0.05));
-    m = min(m, capsuleMask(uv, vec2(0.47, 0.42), vec2(0.58, 0.58), 0.100, 0.05));
-    m = min(m, capsuleMask(uv, vec2(0.56, 0.55), vec2(0.66, 0.32), 0.100, 0.06));
-
-    float dxHead = (uv.x - 0.445) * 1.5;
-    float headCeil = 0.904 - dxHead * dxHead * 1.5;
-    float aboveHead = smoothstep(headCeil - 0.008, headCeil + 0.012, uv.y) * smoothstep(0.36, 0.39, uv.x) * (1.0 - smoothstep(0.48, 0.51, uv.x));
-    m = clamp(m + (1.0 - m) * aboveHead, 0.0, 1.0);
-
-    return m;
+float getMistHeadFactor(vec2 uv) {
+    if (uv.x < 0.22 || uv.x > 0.61 || uv.y < 0.72 || uv.y > 0.965) return 1.0;
+    float d0 = dot(uv, vec2(0.91337, -0.40713)) + 0.09555;
+    float d1 = dot(uv, vec2(0.49726, -0.86760)) + 0.59987;
+    float d2 = dot(uv, vec2(-0.59072, -0.80688)) + 1.01029;
+    float d3 = dot(uv, vec2(-0.96840, -0.24938)) + 0.75718;
+    float d4 = dot(uv, vec2(0.09342, 0.99563)) - 0.81317;
+    float d_top = 0.903 - uv.y;
+    float d = min(min(d0, min(d1, d2)), min(min(d3, d4), d_top));
+    return smoothstep(0.0, 0.055, -d);
 }
 
 float rectSoft(vec2 uv, vec2 lo, vec2 hi, float s) {
@@ -587,78 +954,114 @@ float getWaterMask(vec2 uv, vec3 baseColor, float charMask) {
 
 void main() {
     vec3 rawColor = texture(u_texture, v_uv).rgb;
-    float charMask = getCharacterMask(v_uv);
-    float waterMask = getWaterMask(v_uv, rawColor, charMask);
-    float wingMask = getMetalWingMask(v_uv);
-
     float bgLakeMask = smoothstep(0.60, 0.90, v_uv.y);
-    float regionExclusion = 1.0 - smoothstep(0.20, 0.25, v_uv.x) * (1.0 - smoothstep(0.49, 0.54, v_uv.x)) * smoothstep(0.69, 0.74, v_uv.y) * (1.0 - smoothstep(1.02, 1.07, v_uv.y));
-    float mistDepthMask = bgLakeMask * charMask * regionExclusion;
 
+    float lum = getLuminance(rawColor);
+    if (u_useDefaultMasks == 0) {
+        float lowerRegion = 1.0 - smoothstep(0.35, 0.65, v_uv.y);
+        float genericWater = lowerRegion * smoothstep(0.08, 0.45, lum) * smoothstep(0.02, 0.10, v_uv.y);
+        float genericReflectable = genericWater * (1.0 - smoothstep(0.55, 0.85, v_uv.x));
+        float genericFireflyZone = 1.0 - smoothstep(0.25, 0.65, lum);
+        fragColor = vec4(genericWater, bgLakeMask, genericReflectable, genericFireflyZone);
+        return;
+    }
+
+    vec4 customMasks = texture(u_customMasksTexture, v_uv);
+    float maskReflectable = smoothstep(0.35, 0.65, customMasks.r);
+    float wingMask = 1.0 - smoothstep(0.35, 0.65, customMasks.g);
+    float charBodyMask = 1.0 - smoothstep(0.35, 0.65, customMasks.b);
+    float charMask = min(charBodyMask, wingMask);
+
+    float charErode = min(charMask, customMasks.a);
+
+    float baseWaterMask = getWaterMask(v_uv, rawColor, charMask);
+
+    float mistCurveY = 0.9431 + v_uv.x * (-12.4185 + v_uv.x * (75.7303 + v_uv.x * (-239.4260 + v_uv.x * (400.4212 + v_uv.x * (-335.5593 + v_uv.x * 111.1010)))));
+    float mistBottomLimit = clamp(mistCurveY, 0.02, 0.73);
+    float rightExcl = smoothstep(0.70, 0.82, v_uv.x);
+    float bottomMistZone = (1.0 - smoothstep(mistBottomLimit - 0.30, mistBottomLimit, v_uv.y)) * (1.0 - rightExcl);
+    float mistFactor = getMistHeadFactor(v_uv);
+    float mistExcl1 = rectSoft(v_uv, vec2(0.215, 0.645), vec2(0.353, 0.779), 0.025);
+    float mistExcl2 = rectSoft(v_uv, vec2(0.472, 0.692), vec2(0.614, 0.793), 0.025);
+    float mistExcl3 = rectSoft(v_uv, vec2(-0.05, -0.05), vec2(0.228, 0.297), 0.035);
+    float mistExcl4 = rectSoft(v_uv, vec2(-0.05, 0.240), vec2(0.088, 0.635), 0.025);
+    float mistZoneFactor = mistFactor * (1.0 - max(max(mistExcl1, mistExcl2), max(mistExcl3, mistExcl4)));
+    float mistDepthMask = clamp((bgLakeMask + bottomMistZone) * charErode * mistZoneFactor, 0.0, 1.0);
+
+    float red1Excl = (1.0 - smoothstep(0.21, 0.25, v_uv.x)) * smoothstep(0.70, 0.76, v_uv.y);
+    float red2Excl = rectSoft(v_uv, vec2(0.84, 0.24), vec2(0.94, 0.35), 0.02);
     float waterZone = smoothstep(0.02, 0.08, v_uv.x) * (1.0 - smoothstep(0.92, 0.98, v_uv.x))
-                    * smoothstep(0.04, 0.12, v_uv.y) * (1.0 - smoothstep(0.86, 0.92, v_uv.y)) * regionExclusion;
-    float causticMask = waterZone * waterMask * wingMask;
+                    * smoothstep(0.04, 0.12, v_uv.y) * (1.0 - red1Excl) * (1.0 - red2Excl);
 
-    fragColor = vec4(waterMask, mistDepthMask, causticMask, charMask);
+    float dG0 = dot(v_uv, vec2(0.36231, -0.93206)) + 0.60136;
+    float dG1 = dot(v_uv, vec2(-0.92585, -0.37788)) + 0.41877;
+    float dG2 = dot(v_uv, vec2(-0.80388, 0.59479)) - 0.20647;
+    float dG3 = dot(v_uv, vec2(0.91312, 0.40769)) - 0.26304;
+    float green2Zone = smoothstep(-0.010, 0.010, dG0) * smoothstep(-0.010, 0.010, dG1)
+                     * smoothstep(-0.010, 0.010, dG2) * smoothstep(-0.010, 0.010, dG3);
+
+    float waterMask = clamp((waterZone * baseWaterMask * wingMask + green2Zone) * charErode, 0.0, 1.0);
+
+    fragColor = vec4(waterMask, mistDepthMask, maskReflectable, charMask);
 }`;
         const fsSource = `#version 300 es
 precision highp float;
 in vec2 v_uv;
+in vec2 v_aspectUV;
 out vec4 fragColor;
 
-uniform vec2 u_imageResolution;
 uniform int u_scaleMode;
+uniform float u_sceneAspect;
 uniform float u_time;
 uniform sampler2D u_texture;
 uniform sampler2D u_maskTexture;
+uniform sampler2D u_noiseTexture;
+uniform sampler2D u_customMasksTexture;
 
 uniform float u_rainIntensity;
 uniform vec3 u_windParams;
-uniform float u_moonBoost;
-
-uniform vec3 u_ambient;
-uniform vec4 u_dayNightFactors;
-uniform vec4 u_weatherFactors;
-uniform vec4 u_mistParams;
-uniform float u_isFullMoonNight;
-
-uniform float u_causticBoost;
-uniform float u_rayBoost;
-uniform float u_glintBoost;
-uniform float u_starBoost;
 uniform float u_rippleBoost;
-uniform float u_fireflyBoost;
 
-#define DEFAULT_IMAGE_ASPECT 2.155
+uniform mediump vec3 u_ambient;
+uniform vec4 u_dayNightFactors;
+uniform vec2 u_weatherFactors;
+uniform float u_cloudShadowBoost;
+uniform mediump vec4 u_mistParams;
 
-float hash21(vec2 p) {
-    p = fract(p * vec2(233.34, 851.73));
-    p += dot(p, p + 23.45);
-    return fract(p.x * p.y);
+uniform mediump vec2 u_causticWeights;
+uniform mediump vec4 u_rayColorAndWindow;
+uniform mediump vec4 u_moonParams;
+uniform mediump vec4 u_miscFactors;
+uniform float u_meteorWeight;
+uniform float u_meteorShower;
+uniform vec2 u_meteorShowerDir;
+uniform vec4 u_sporadicStar;
+uniform float u_wingDroplets;
+
+#define TWO_PI 6.2831853
+#define INV_NOISE_SIZE (1.0 / 256.0)
+
+uint pcg(uint v) {
+    uint s = v * 747796405u + 2891336453u;
+    uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u;
+    return (w >> 22u) ^ w;
 }
 
-vec2 hash22(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.xx + p3.yz) * p3.zy);
+float hash21i(ivec2 p) {
+    return float(pcg(uint(p.x) * 1664525u + pcg(uint(p.y)))) * (1.0 / 4294967295.0);
+}
+
+vec2 hash22i(ivec2 p) {
+    uint h1 = pcg(uint(p.x) * 1664525u + pcg(uint(p.y)));
+    uint h2 = pcg(h1 ^ 0x9e3779b9u);
+    return vec2(h1, h2) * (1.0 / 4294967295.0);
 }
 
 float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     vec2 u = f * f * (3.0 - 2.0 * f);
-
-    vec4 xs = i.x + vec4(0.0, 1.0, 0.0, 1.0);
-    vec4 ys = i.y + vec4(0.0, 0.0, 1.0, 1.0);
-
-    vec4 p0 = fract(xs * 233.34);
-    vec4 p1 = fract(ys * 851.73);
-    vec4 d = p0 * (p0 + 23.45) + p1 * (p1 + 23.45);
-    p0 += d;
-    p1 += d;
-    vec4 h = fract(p0 * p1);
-
-    return mix(mix(h.x, h.y, u.x), mix(h.z, h.w, u.x), u.y);
+    return textureLod(u_noiseTexture, (i + u + 0.5) * INV_NOISE_SIZE, 0.0).r;
 }
 
 float fbm(vec2 p) {
@@ -677,54 +1080,59 @@ float getLuminance(vec3 color) {
     return dot(color, vec3(0.299, 0.587, 0.114));
 }
 
-vec2 getWaterRipples(vec2 uv, float rainIntensity, float time, float waterMask) {
-    if (rainIntensity <= 0.01 || waterMask <= 0.005) return vec2(0.0);
-
+vec2 getWaterRipples(vec2 uv, vec2 aspectUV, float rainIntensity, float time, float waterMask) {
     float depthProgress = clamp(uv.y * 0.75 + uv.x * 0.25, 0.0, 1.0);
-    float perspectiveScale = mix(1.35, 0.78, depthProgress);
-    float distFactor = mix(1.0, 0.5, clamp(uv.y, 0.0, 1.0));
+    float perspectiveScale = mix(1.25, 1.85, depthProgress);
+    float distFactor = mix(1.0, 0.55, clamp(uv.y, 0.0, 1.0));
 
     vec2 totalNormal = vec2(0.0);
-    float gridScale = 10.8;
-    vec2 gv = uv * gridScale;
+    float gridScale = 6.2;
+    vec2 gv = aspectUV * gridScale;
     vec2 id = floor(gv);
+    ivec2 baseId = ivec2(id);
 
     mat2 rotGround = mat2(0.9492, 0.3146, -0.3146, 0.9492);
     float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
     float cellThreshold = 0.88 - norm * 0.55;
+    float waveWidth = 0.075 * distFactor;
+    float maxWaveSpan = waveWidth * 2.5;
+    float maxPossibleRadius = 0.76 * distFactor;
+    float maxPossibleRadiusSq = maxPossibleRadius * maxPossibleRadius;
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
-            vec2 cellOffset = vec2(float(x), float(y));
-            vec2 cellId = id + cellOffset;
+            ivec2 offsetI = ivec2(x, y);
+            ivec2 cellIdI = baseId + offsetI;
+            vec2 cellId = vec2(cellIdI);
 
-            float speedBase = 0.8 + hash21(cellId + 0.1) * 0.35;
-            float cellTime = mod(time, 256.0 / speedBase);
-            float totalProgress = cellTime * speedBase + hash21(cellId + 0.45) * 100.0;
+            vec2 dBox = gv - clamp(gv, cellId + 0.15, cellId + 0.85);
+            if (dot(dBox, dBox) >= maxPossibleRadiusSq) continue;
 
-            float cycleIndex = floor(totalProgress);
+            float speedBase = 0.8 + hash21i(cellIdI + ivec2(11, 23)) * 0.35;
+            float totalProgress = time * speedBase + hash21i(cellIdI + ivec2(45, 79)) * 100.0;
+
+            int cycleIndex = int(floor(totalProgress));
             float dropTime = fract(totalProgress);
 
-            float cyc = mod(cycleIndex, 256.0);
-            vec2 dynamicSeed = cellId + vec2(cyc * 17.13, cyc * 31.41);
+            ivec2 dynamicSeed = cellIdI + ivec2(cycleIndex * 17, cycleIndex * 31);
 
-            if (hash21(dynamicSeed) > cellThreshold) {
-                vec2 dropPos = hash22(dynamicSeed + 0.73) * 0.7 + 0.15;
+            if (hash21i(dynamicSeed) > cellThreshold) {
+                vec2 dropPos = hash22i(dynamicSeed + ivec2(73, 19)) * 0.7 + 0.15;
                 vec2 p = gv - (cellId + dropPos);
 
                 p = rotGround * p;
                 p.y *= perspectiveScale;
 
-                float maxRadius = mix(0.48, 0.75, hash21(dynamicSeed + 0.2)) * distFactor;
+                float maxRadius = mix(0.48, 0.75, hash21i(dynamicSeed + ivec2(29, 53))) * distFactor;
                 float waveRadius = dropTime * maxRadius;
+                float innerRadius = max(0.0, waveRadius - maxWaveSpan);
 
                 float distSq = dot(p, p);
-                if (distSq < waveRadius * waveRadius && distSq > 0.00001) {
+                if (distSq < waveRadius * waveRadius && distSq > innerRadius * innerRadius && distSq > 0.00001) {
                     float dist = sqrt(distSq);
                     float waveDist = waveRadius - dist;
-                    float waveWidth = 0.075 * distFactor;
-                    float rippleProfile = sin(waveDist / waveWidth * 6.2831853);
-                    float edgeFade = smoothstep(0.0, 0.03 * distFactor, waveDist) * (1.0 - smoothstep(waveWidth * 1.5, waveWidth * 2.5, waveDist));
+                    float rippleProfile = sin(waveDist / waveWidth * TWO_PI);
+                    float edgeFade = smoothstep(0.0, 0.03 * distFactor, waveDist) * (1.0 - smoothstep(waveWidth * 1.5, maxWaveSpan, waveDist));
                     float xDrop = 1.0 - dropTime;
                     float lifeFade = xDrop * (xDrop * 0.5 + 0.5);
                     float strength = rippleProfile * edgeFade * lifeFade;
@@ -738,92 +1146,91 @@ vec2 getWaterRipples(vec2 uv, float rainIntensity, float time, float waterMask) 
     return totalNormal * (waterMask * (norm * 0.35 + 0.03));
 }
 
-float getForegroundRain(vec2 uv, float rainIntensity, float time) {
-    if (rainIntensity <= 0.01) return 0.0;
-
-    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
+float getForegroundRain(vec2 uv, float normRain, float time) {
     vec2 rainUV = uv;
     rainUV.x -= (1.0 - rainUV.y) * u_windParams.z;
 
     float t = mod(time, 256.0);
     float streak = 0.0;
+    float tiltScale = clamp(abs(u_windParams.z) * 10.0, 0.0, 1.0);
 
-    float prob1 = min(norm * 0.165, 0.165);
+    float prob1 = min(normRain * 0.165, 0.165);
     vec2 st1 = vec2(rainUV.x * 41.0, rainUV.y * 1.4 + t * 19.0);
     vec2 id1 = floor(st1);
     vec2 gv1 = fract(st1);
-    float h1 = hash21(id1 + vec2(7.8, 3.4));
+    ivec2 hashId1 = ivec2(int(id1.x), int(floor(mod(id1.y, 256.0 * 19.0) + 0.5)));
+    float h1 = hash21i(hashId1 + ivec2(78, 34));
     if (h1 < prob1) {
-        float dropX = hash21(id1 + vec2(13.5, 47.1)) * 0.74 + 0.13;
-        float dropTilt = (hash21(id1 + vec2(3.1, 8.9)) - 0.5) * 0.05;
+        float dropX = hash21i(hashId1 + ivec2(135, 471)) * 0.74 + 0.13;
+        float dropTilt = (hash21i(hashId1 + ivec2(31, 89)) - 0.5) * 0.05 * tiltScale;
         float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
         float dy = gv1.y;
-        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.042, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     vec2 st2 = vec2(rainUV.x * 59.0 + 17.3, rainUV.y * 1.8 + t * 25.0 + 31.5);
     vec2 id2 = floor(st2);
     vec2 gv2 = fract(st2);
-    float h2 = hash21(id2 + vec2(19.1, 63.7));
+    ivec2 hashId2 = ivec2(int(id2.x), int(floor(mod(id2.y, 256.0 * 25.0) + 0.5)));
+    float h2 = hash21i(hashId2 + ivec2(191, 637));
     if (h2 < prob1) {
-        float dropX = hash21(id2 + vec2(81.2, 23.9)) * 0.74 + 0.13;
-        float dropTilt = (hash21(id2 + vec2(15.4, 71.2)) - 0.5) * 0.05;
+        float dropX = hash21i(hashId2 + ivec2(812, 239)) * 0.74 + 0.13;
+        float dropTilt = (hash21i(hashId2 + ivec2(154, 712)) - 0.5) * 0.05 * tiltScale;
         float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
         float dy = gv2.y;
-        streak += (1.0 - smoothstep(0.0, 0.038, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.042, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     return streak * 0.07;
 }
 
-float getBackgroundRain(vec2 uv, float rainIntensity, float time) {
-    if (rainIntensity <= 0.01) return 0.0;
+float getBackgroundRain(vec2 uv, float normRain, float time) {
     float waterDepthMask = smoothstep(0.35, 0.65, uv.y);
     if (waterDepthMask <= 0.01) return 0.0;
 
-    float norm = clamp(rainIntensity * 0.15, 0.0, 1.0);
     vec2 rainUV = uv;
     rainUV.x -= (1.0 - rainUV.y) * (u_windParams.z * 0.85);
 
     float t = mod(time, 256.0);
     float streak = 0.0;
+    float tiltScale = clamp(abs(u_windParams.z) * 10.0, 0.0, 1.0);
 
-    float prob2 = min(norm * 0.270, 0.270);
+    float prob2 = min(normRain * 0.270, 0.270);
     vec2 st1 = vec2(rainUV.x * 79.0, rainUV.y * 2.2 + t * 22.0);
     vec2 id1 = floor(st1);
     vec2 gv1 = fract(st1);
-    float h1 = hash21(id1 + vec2(1.2, 9.8));
+    ivec2 hashId1 = ivec2(int(id1.x), int(floor(mod(id1.y, 256.0 * 22.0) + 0.5)));
+    float h1 = hash21i(hashId1 + ivec2(12, 98));
     if (h1 < prob2) {
-        float dropX = hash21(id1 + vec2(51.3, 17.4)) * 0.74 + 0.13;
-        float dropTilt = (hash21(id1 + vec2(5.4, 2.1)) - 0.5) * 0.04;
+        float dropX = hash21i(hashId1 + ivec2(513, 174)) * 0.74 + 0.13;
+        float dropTilt = (hash21i(hashId1 + ivec2(54, 21)) - 0.5) * 0.04 * tiltScale;
         float dx = abs(gv1.x - (dropX + (gv1.y - 0.5) * dropTilt));
         float dy = gv1.y;
-        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.036, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     vec2 st2 = vec2(rainUV.x * 113.0 + 29.1, rainUV.y * 2.7 + t * 28.0 + 47.3);
     vec2 id2 = floor(st2);
     vec2 gv2 = fract(st2);
-    float h2 = hash21(id2 + vec2(37.5, 82.3));
+    ivec2 hashId2 = ivec2(int(id2.x), int(floor(mod(id2.y, 256.0 * 28.0) + 0.5)));
+    float h2 = hash21i(hashId2 + ivec2(375, 823));
     if (h2 < prob2) {
-        float dropX = hash21(id2 + vec2(93.8, 64.1)) * 0.74 + 0.13;
-        float dropTilt = (hash21(id2 + vec2(11.7, 43.6)) - 0.5) * 0.04;
+        float dropX = hash21i(hashId2 + ivec2(938, 641)) * 0.74 + 0.13;
+        float dropTilt = (hash21i(hashId2 + ivec2(117, 436)) - 0.5) * 0.04 * tiltScale;
         float dx = abs(gv2.x - (dropX + (gv2.y - 0.5) * dropTilt));
         float dy = gv2.y;
-        streak += (1.0 - smoothstep(0.0, 0.032, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
+        streak += (1.0 - smoothstep(0.0, 0.036, dx)) * smoothstep(0.0, 0.90, dy) * (1.0 - smoothstep(0.85, 1.0, dy));
     }
 
     return streak * 0.038 * waterDepthMask;
 }
 
-float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
-    if (causticMask <= 0.005) return 0.0;
-
+float getUnderwaterCaustics(vec2 uv, float animTime, float waterMask, float sceneAspect) {
     float depthScale = mix(1.0, 2.2, smoothstep(0.20, 0.85, uv.y));
-    vec2 p = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y * 1.45) * (16.0 * depthScale);
+    vec2 p = vec2(uv.x * sceneAspect, uv.y * 1.45) * (16.0 * depthScale);
     float speedScale = mix(1.0, 0.70, smoothstep(0.30, 0.85, uv.y));
-    vec2 t1 = mod(vec2(animTime * 0.45, -animTime * 0.32) * speedScale, 2048.0);
-    vec2 t2 = mod(vec2(-animTime * 0.38, animTime * 0.41) * speedScale, 2048.0);
+    vec2 t1 = vec2(animTime * 0.45, -animTime * 0.32) * speedScale;
+    vec2 t2 = vec2(-animTime * 0.38, animTime * 0.41) * speedScale;
 
     float n1 = abs(noise(p + t1) - 0.5);
     float n2 = abs(noise(p * 1.35 + vec2(4.2, 8.7) + t2) - 0.5);
@@ -831,12 +1238,11 @@ float getUnderwaterCaustics(vec2 uv, float animTime, float causticMask) {
     float ridge2 = 1.0 - smoothstep(0.0, 0.11, n2);
     float depthFade = mix(1.0, 0.75, smoothstep(0.40, 0.85, uv.y));
 
-    return pow(ridge1 * ridge2, 1.35) * causticMask * depthFade;
+    return pow(ridge1 * ridge2, 1.35) * waterMask * depthFade;
 }
 
-vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay, float dawnFactor, float sunsetFactor, float cloudCover, float normRain, float origLum) {
-    float rayWindow = max(dawnRay, sunsetRay) * clamp(1.0 - cloudCover, 0.0, 1.0) * (1.0 - normRain);
-    if (rayWindow <= 0.01) return vec3(0.0);
+mediump vec3 getCrepuscularRays(vec2 uv, float animTime, mediump vec4 rayColorAndWindow, float origLum) {
+    if (rayColorAndWindow.a <= 0.01) return vec3(0.0);
 
     vec2 rel = uv - vec2(-0.05, 1.05);
     float beamCoord = rel.x * 0.78 + rel.y * 0.62;
@@ -844,60 +1250,183 @@ vec3 getCrepuscularRays(vec2 uv, float animTime, float dawnRay, float sunsetRay,
     float radialFade = (1.0 - smoothstep(0.15, 1.35, distFromCorner)) * smoothstep(0.10, 0.85, uv.y);
     if (radialFade <= 0.005) return vec3(0.0);
 
-    float shift = mod(animTime * 0.035, 2048.0);
+    float shift = animTime * 0.035;
     float ray1 = noise(vec2(beamCoord * 11.0 + shift, uv.y * 0.6));
     float ray2 = noise(vec2(beamCoord * 23.0 - shift * 0.7, uv.y * 0.9 + 5.3));
     float shafts = smoothstep(0.45, 0.88, ray1 * 0.65 + ray2 * 0.35);
 
-    vec3 dawnRayCol   = vec3(1.00, 0.90, 0.78);
-    vec3 sunsetRayCol = vec3(1.00, 0.60, 0.35);
-    vec3 rayCol = mix(dawnRayCol, sunsetRayCol, sunsetFactor / (dawnFactor + sunsetFactor + 0.0001));
-
     float antiClip = 1.0 - origLum * 0.55;
-    return rayCol * (shafts * radialFade * rayWindow * antiClip * 0.22);
+    return rayColorAndWindow.rgb * (shafts * radialFade * rayColorAndWindow.a * antiClip * 0.22);
 }
 
-vec3 getFireflies(vec2 uv, float animTime, float fireflyActive, float boost, float charMask, sampler2D maskTex) {
-    if (fireflyActive <= 0.005 || boost <= 0.005 || charMask <= 0.01) return vec3(0.0);
+mediump vec3 getShootingStars(vec2 aspectUV, float animTime, float meteorWeight, float meteorShower, vec2 showerDir, float sceneAspect, vec4 sporadicStar) {
+    if (meteorWeight <= 0.005 || u_rainIntensity > 0.01) return vec3(0.0);
+    vec3 totalColor = vec3(0.0);
+
+    if (meteorShower > 0.001) {
+        for (int k = 0; k < 7; k++) {
+            float fk = float(k);
+            float period = 2.0 + mod(fk * 1.37 + 0.4, 2.2);
+            float activeDur = 0.60 + mod(fk * 0.11, 0.25);
+            float cycle = floor(animTime / period);
+            float tInCycle = mod(animTime, period);
+
+            float startDelay = 0.2 + hash21i(ivec2(int(cycle * 13.0 + fk * 37.0), 19)) * max(0.1, period - activeDur - 0.4);
+
+            if (tInCycle >= startDelay && tInCycle <= startDelay + activeDur) {
+                float progress = (tInCycle - startDelay) / activeDur;
+
+                float seed1 = hash21i(ivec2(int(cycle * 41.0 + fk * 73.0), 31));
+                float seed2 = hash21i(ivec2(int(cycle * 67.0 + fk * 97.0), 53));
+                float seed3 = hash21i(ivec2(int(cycle * 89.0 + fk * 17.0), 71));
+                float seed4 = hash21i(ivec2(int(cycle * 113.0 + fk * 47.0), 83));
+                float seed5 = hash21i(ivec2(int(cycle * 137.0 + fk * 29.0), 97));
+
+                float sizeScale = mix(0.55, 1.00, seed4);
+                float brightScale = mix(0.40, 1.00, mix(sizeScale, seed5, 0.35));
+                float travelDist = mix(0.38, 0.78, mix(sizeScale, seed2, 0.40));
+
+                float baseAngle = (length(showerDir) > 0.1) ? atan(showerDir.y, showerDir.x) : 3.65;
+                float angle = baseAngle + (seed3 - 0.5) * 0.10;
+                float sideChoice = hash21i(ivec2(int(cycle * 23.0 + fk * 61.0), 43));
+                bool flyRight = (cos(baseAngle) > 0.0);
+                vec2 startPos;
+                if (flyRight) {
+                    if (sideChoice < 0.5) {
+                        startPos = vec2(0.0, mix(0.50, 0.98, seed2));
+                    } else {
+                        startPos = vec2(mix(0.01, 0.65, seed1) * sceneAspect, 1.0);
+                    }
+                } else {
+                    if (sideChoice < 0.5) {
+                        startPos = vec2(sceneAspect, mix(0.50, 0.98, seed2));
+                    } else {
+                        startPos = vec2(mix(0.35, 0.99, seed1) * sceneAspect, 1.0);
+                    }
+                }
+
+                vec2 dir = vec2(cos(angle), sin(angle));
+
+                vec2 headPos = startPos + dir * (progress * travelDist);
+                float lifeEnvelope = smoothstep(0.0, 0.16, progress) * (1.0 - smoothstep(0.70, 1.0, progress));
+
+                vec2 toPixel = aspectUV - headPos;
+                float distAlongTail = dot(toPixel, -dir);
+                vec2 perpDir = vec2(-dir.y, dir.x);
+                float distPerp = abs(dot(toPixel, perpDir));
+
+                float tailLength = (0.07 + seed1 * 0.09) * sizeScale;
+                float tailBrightness = 0.0;
+                if (distAlongTail >= 0.0 && distAlongTail <= tailLength) {
+                    float tailWidth = mix(0.0010, 0.0002, distAlongTail / tailLength) * sizeScale;
+                    float tailProfile = exp(-pow(distPerp / tailWidth, 2.0) * 2.8);
+                    float tailDecay = pow(1.0 - distAlongTail / tailLength, 1.5);
+                    tailBrightness = tailProfile * tailDecay * 2.4;
+                }
+
+                float headDist = length(toPixel);
+                float headCore = exp(-headDist * (830.0 / sizeScale)) * 3.2;
+                float headHalo = exp(-headDist * (260.0 / sizeScale)) * 0.85;
+                float headBrightness = headCore + headHalo;
+
+                float trackWeight = meteorWeight * meteorShower;
+                float bright = (headBrightness + tailBrightness) * (lifeEnvelope * 0.35 * brightScale) * trackWeight;
+                mediump vec3 tailCol = mix(vec3(0.55, 0.85, 1.00), vec3(1.00, 0.92, 0.72), seed3);
+                mediump vec3 starCol = mix(tailCol, vec3(1.0), clamp(headCore * 0.8, 0.0, 1.0));
+
+                totalColor += starCol * bright;
+            }
+        }
+    } else if (sporadicStar.w > 0.005 && sporadicStar.x >= 0.0 && sporadicStar.x <= 1.0) {
+        float progress = sporadicStar.x;
+        float seed1 = sporadicStar.y;
+        float seed2 = sporadicStar.z;
+        float seed3 = fract(seed1 * 17.31 + seed2 * 31.73);
+        float seed4 = fract(seed1 * 43.19 + seed2 * 59.11);
+        float seed5 = fract(seed1 * 71.23 + seed2 * 83.47);
+
+        float sizeScale = mix(0.65, 1.15, seed4);
+        float brightScale = mix(0.50, 1.00, mix(sizeScale, seed5, 0.35));
+        float travelDist = mix(0.40, 0.85, mix(sizeScale, seed2, 0.40));
+
+        vec2 startPos = vec2(mix(0.05, 0.95, seed1) * sceneAspect, mix(0.55, 0.95, seed2));
+        float angle = 3.14159265 + 0.25 + seed3 * (3.14159265 - 0.50);
+        vec2 dir = vec2(cos(angle), sin(angle));
+
+        vec2 headPos = startPos + dir * (progress * travelDist);
+        float lifeEnvelope = smoothstep(0.0, 0.16, progress) * (1.0 - smoothstep(0.70, 1.0, progress));
+
+        vec2 toPixel = aspectUV - headPos;
+        float distAlongTail = dot(toPixel, -dir);
+        vec2 perpDir = vec2(-dir.y, dir.x);
+        float distPerp = abs(dot(toPixel, perpDir));
+
+        float tailLength = (0.08 + seed1 * 0.10) * sizeScale;
+        float tailBrightness = 0.0;
+        if (distAlongTail >= 0.0 && distAlongTail <= tailLength) {
+            float tailWidth = mix(0.0010, 0.0002, distAlongTail / tailLength) * sizeScale;
+            float tailProfile = exp(-pow(distPerp / tailWidth, 2.0) * 2.8);
+            float tailDecay = pow(1.0 - distAlongTail / tailLength, 1.5);
+            tailBrightness = tailProfile * tailDecay * 2.4;
+        }
+
+        float headDist = length(toPixel);
+        float headCore = exp(-headDist * (830.0 / sizeScale)) * 3.2;
+        float headHalo = exp(-headDist * (260.0 / sizeScale)) * 0.85;
+        float headBrightness = headCore + headHalo;
+
+        float bright = (headBrightness + tailBrightness) * (lifeEnvelope * 0.38 * brightScale) * (meteorWeight * sporadicStar.w);
+        mediump vec3 tailCol = mix(vec3(0.55, 0.85, 1.00), vec3(1.00, 0.92, 0.72), seed3);
+        mediump vec3 starCol = mix(tailCol, vec3(1.0), clamp(headCore * 0.8, 0.0, 1.0));
+
+        totalColor += starCol * bright;
+    }
+
+    return totalColor;
+}
+mediump vec3 getFireflies(vec2 uv, vec2 aspectUV, float animTime, mediump float fireflyWeight, float charMask, sampler2D maskTex, float sceneAspect) {
+    if (fireflyWeight <= 0.005 || charMask <= 0.01 || u_rainIntensity > 0.01) return vec3(0.0);
     if (uv.y < 0.02 || uv.y > 0.96) return vec3(0.0);
 
-    vec2 fp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 36.0;
+    vec2 fp = aspectUV * 36.0;
     vec2 cell = floor(fp);
-    float h = hash21(cell);
+    ivec2 cellI = ivec2(cell);
+    float h = hash21i(cellI);
 
     if (h < 0.988) return vec3(0.0);
 
-    vec2 basePos = hash22(cell + vec2(1.7, 8.3)) - 0.5;
-    vec2 flight = vec2(
-        sin(animTime * 0.35 + hash21(cell + 11.3) * 6.2831853),
-        cos(animTime * 0.28 + hash21(cell + 23.7) * 6.2831853)
-    ) * 0.20;
-    flight.x += sin(animTime * 0.15 + hash21(cell + 37.1) * 6.2831853) * 0.06;
+    vec2 basePos = hash22i(cellI + ivec2(17, 83)) - 0.5;
+    float phaseX = mod(animTime * 0.35 + hash21i(cellI + ivec2(113, 17)) * TWO_PI, TWO_PI);
+    float phaseY = mod(animTime * 0.28 + hash21i(cellI + ivec2(237, 41)) * TWO_PI, TWO_PI);
+    float phaseDrift = mod(animTime * 0.15 + hash21i(cellI + ivec2(371, 61)) * TWO_PI, TWO_PI);
+    vec2 flight = vec2(sin(phaseX), cos(phaseY)) * 0.20;
+    flight.x += sin(phaseDrift) * 0.06;
 
     vec2 center = 0.5 + basePos * 0.20 + flight;
-    vec2 centerUV = vec2((cell.x + center.x) / DEFAULT_IMAGE_ASPECT, cell.y + center.y) / 36.0;
+    vec2 centerUV = vec2((cell.x + center.x) / sceneAspect, cell.y + center.y) / 36.0;
     if (centerUV.y < 0.04 || centerUV.y > 0.94) return vec3(0.0);
 
     float centerCharMask = textureLod(maskTex, centerUV, 0.0).a;
     if (centerCharMask < 0.60) return vec3(0.0);
 
-    float cycleDuration = 6.5 + hash21(cell + 7.1) * 3.5;
-    float flashDuration = 2.2 + hash21(cell + 19.4) * 0.8;
-    float cycleTime = mod(animTime + hash21(cell + 31.8) * 100.0, cycleDuration);
+    float cycleDuration = 6.5 + hash21i(cellI + ivec2(71, 13)) * 3.5;
+    float flashDuration = 2.2 + hash21i(cellI + ivec2(194, 29)) * 0.8;
+    float cycleTime = mod(animTime + hash21i(cellI + ivec2(318, 47)) * 100.0, cycleDuration);
 
     if (cycleTime >= flashDuration) return vec3(0.0);
 
     float progress = cycleTime / flashDuration;
     float envelope = smoothstep(0.0, 1.0, sin(progress * 3.14159265));
 
-    float fSpeed1 = 8.0 + hash21(cell + 13.7) * 7.0;
-    float fSpeed2 = 14.0 + hash21(cell + 29.1) * 9.0;
-    float fPhase = hash21(cell + 43.5) * 6.2831853;
-    float rawFlicker = sin(animTime * fSpeed1 + fPhase) * 0.60 + cos(animTime * fSpeed2 + fPhase * 1.5) * 0.40;
+    float fSpeed1 = 8.0 + hash21i(cellI + ivec2(137, 53)) * 7.0;
+    float fSpeed2 = 14.0 + hash21i(cellI + ivec2(291, 67)) * 9.0;
+    float fPhase = hash21i(cellI + ivec2(435, 89)) * TWO_PI;
+    float rawFlicker = sin(mod(animTime * fSpeed1 + fPhase, TWO_PI)) * 0.60
+                     + cos(mod(animTime * fSpeed2 + fPhase * 1.5, TWO_PI)) * 0.40;
     float flicker = 0.45 + 0.55 * pow(clamp(rawFlicker * 0.5 + 0.5, 0.0, 1.0), 1.6);
     float pulse = envelope * flicker;
 
-    float sizeRand = 0.85 + hash21(cell + 4.9) * 0.30;
+    float sizeRand = 0.85 + hash21i(cellI + ivec2(49, 97)) * 0.30;
     vec2 fRel = fract(fp) - center;
     float r = length(fRel);
 
@@ -905,10 +1434,89 @@ vec3 getFireflies(vec2 uv, float animTime, float fireflyActive, float boost, flo
     float halo = 1.0 - smoothstep(0.0, 0.132 * sizeRand, r);
     float shape = core * 1.5 + halo * 0.60;
 
-    vec3 fireflyColor = mix(vec3(0.85, 0.95, 0.40), vec3(1.00, 0.84, 0.42), hash21(cell + 9.3));
+    mediump vec3 fireflyColor = mix(vec3(0.85, 0.95, 0.40), vec3(1.00, 0.84, 0.42), hash21i(cellI + ivec2(93, 101)));
     fireflyColor = mix(fireflyColor, vec3(1.00, 1.00, 0.92), core);
 
-    return fireflyColor * (shape * pulse * 1.60 * fireflyActive * boost * smoothstep(0.40, 0.90, charMask));
+    return fireflyColor * (shape * pulse * fireflyWeight * smoothstep(0.40, 0.90, charMask));
+}
+
+float saw(float b, float t) {
+    return smoothstep(0.0, b, t) * smoothstep(1.0, b, t);
+}
+
+vec4 getWingRainDroplets(vec2 aspectUV, vec3 baseCol, float animTime, float dropletVal, float normRain, float mechaMask, float dayFactor, float nightFactor, float sunsetFactor) {
+    if (dropletVal <= 0.005 || mechaMask <= 0.005) return vec4(0.0);
+
+    float t = animTime * 0.12;
+
+    float cappedRain = min(dropletVal, 0.40);
+    float dropDensity1 = clamp(cappedRain * 1.15, 0.04, 0.46);
+    float spawnThresh1 = 1.0 - dropDensity1;
+
+    vec2 s1 = aspectUV * 42.0;
+    ivec2 cell1 = ivec2(floor(s1));
+    float sc1 = 0.0;
+    vec2 norm1 = vec2(0.0);
+
+    if (hash21i(cell1 + ivec2(11, 47)) >= spawnThresh1) {
+        vec2 st1 = fract(s1) - 0.5;
+        vec2 p1 = (vec2(hash21i(cell1), hash21i(cell1 + ivec2(19, 61))) - 0.5) * 0.70;
+        float sz1 = hash21i(cell1 + ivec2(77, 143));
+        vec2 diff1 = st1 - p1;
+        float d1 = length(diff1);
+        float fade1 = 0.50 + 0.50 * saw(0.025, fract(t + sz1));
+        float size1 = 0.075 + 0.028 * hash21i(cell1 + ivec2(35, 91));
+        sc1 = smoothstep(size1, 0.0, d1) * (0.65 + 0.35 * fract(sz1 * 10.0)) * fade1;
+        norm1 = (d1 > 0.001) ? (diff1 / d1) : vec2(0.0);
+    }
+
+    float dropDensity2 = clamp(cappedRain * 1.00, 0.05, 0.40);
+    float spawnThresh2 = 1.0 - dropDensity2;
+
+    vec2 s2 = (aspectUV + vec2(13.7, 29.1)) * 80.0;
+    ivec2 cell2 = ivec2(floor(s2));
+    float sc2 = 0.0;
+    vec2 norm2 = vec2(0.0);
+
+    if (hash21i(cell2 + ivec2(17, 59)) >= spawnThresh2) {
+        vec2 st2 = fract(s2) - 0.5;
+        vec2 p2 = (vec2(hash21i(cell2), hash21i(cell2 + ivec2(31, 83))) - 0.5) * 0.70;
+        float sz2 = hash21i(cell2 + ivec2(97, 167));
+        vec2 diff2 = st2 - p2;
+        float d2 = length(diff2);
+        float fade2 = 0.40 + 0.60 * saw(0.025, fract(t * 1.30 + sz2));
+        float size2 = 0.068 + 0.020 * hash21i(cell2 + ivec2(53, 117));
+        sc2 = smoothstep(size2, 0.0, d2) * (0.60 + 0.40 * fract(sz2 * 10.0)) * fade2;
+        norm2 = (d2 > 0.001) ? (diff2 / d2) : vec2(0.0);
+    }
+
+    float rainWeight = clamp(dropletVal * 1.5, 0.0, 1.0);
+    float totalDrop = clamp(sc1 + sc2 * 0.70, 0.0, 1.8);
+
+    vec2 N2D = norm1 * sc1 + norm2 * (sc2 * 0.70);
+    float nLen = length(N2D);
+    if (nLen > 0.001) N2D /= nLen;
+
+    vec2 lightDir = normalize(vec2(-0.35, 0.85));
+    float NdotL = max(0.0, dot(-N2D, lightDir));
+
+    float heavyDim = 1.0 - smoothstep(0.20, 0.85, normRain) * 0.55;
+    float heavySpecDim = mix(1.0, 0.35, smoothstep(0.20, 0.85, normRain));
+
+    float spec = pow(NdotL, 16.0) * smoothstep(0.03, 0.18, totalDrop) * (1.4 * heavySpecDim);
+    float rim = smoothstep(0.06, 0.20, totalDrop) * smoothstep(0.70, 0.25, totalDrop) * 0.70;
+    float domeGlow = smoothstep(0.04, 0.25, totalDrop) * 0.22;
+
+    mediump vec3 metalBase = mix(baseCol * 1.6, vec3(0.24, 0.27, 0.32), 0.30);
+    mediump vec3 metalGlint = mix(baseCol * 2.2, vec3(0.46, 0.52, 0.60), 0.35);
+    metalGlint = mix(metalGlint, metalGlint * vec3(1.10, 0.95, 0.80), sunsetFactor);
+    metalGlint = mix(metalGlint, metalGlint * vec3(0.70, 0.85, 1.15), nightFactor);
+    metalBase = mix(metalBase, metalBase * vec3(0.60, 0.78, 1.15), nightFactor);
+
+    mediump vec3 dropRgb = (metalBase * (rim + domeGlow) + metalGlint * spec) * (mechaMask * rainWeight * heavyDim);
+    float wetDarken = (totalDrop * mix(0.10, 0.14, smoothstep(0.20, 0.85, normRain))) * mechaMask * rainWeight;
+
+    return vec4(dropRgb, wetDarken);
 }
 
 void main() {
@@ -919,159 +1527,170 @@ void main() {
         return;
     }
 
-    float imageAspect = (u_imageResolution.y > 0.0) ? (u_imageResolution.x / u_imageResolution.y) : DEFAULT_IMAGE_ASPECT;
-    float animTime = mod(u_time, 86400.0);
-    float iTime = u_time;
+    vec2 aspectUV = v_aspectUV;
+    float animTime = u_time;
 
     float dayFactor = u_dayNightFactors.x;
     float nightFactor = u_dayNightFactors.y;
-    float dawnFactor = u_dayNightFactors.z;
     float sunsetFactor = u_dayNightFactors.w;
 
     float normRain = u_weatherFactors.x;
     float finalCloudCover = u_weatherFactors.y;
-    float dawnRay = u_weatherFactors.z;
-    float sunsetRay = u_weatherFactors.w;
 
-    vec3 mistColor = u_mistParams.rgb;
-    float morningMistWindow = u_mistParams.a;
-
-    vec3 ambient = u_ambient;
-    float isFullMoonNight = u_isFullMoonNight;
-    float moonBoost = u_moonBoost;
-    float rainIntensity = u_rainIntensity;
-
-    vec4 maskData = texture(u_maskTexture, uv);
+    mediump vec4 maskData = textureLod(u_maskTexture, uv, 0.0);
     float waterMask = maskData.r;
     float mistDepthMask = maskData.g;
-    float causticMask = maskData.b;
+    float maskReflectable = maskData.b;
     float charMask = maskData.a;
 
-    vec2 rippleOffset = getWaterRipples(uv, rainIntensity, iTime, waterMask) * u_rippleBoost;
+    vec2 rippleOffset = vec2(0.0);
+    if (u_rainIntensity > 0.01 && u_rippleBoost > 0.001 && waterMask > 0.001) {
+        rippleOffset = getWaterRipples(uv, aspectUV, u_rainIntensity, animTime, waterMask) * u_rippleBoost;
+    }
     vec2 distortedUV = clamp(uv + rippleOffset, 0.0, 1.0);
-
     vec3 baseColor = texture(u_texture, distortedUV).rgb;
     float origLum = getLuminance(baseColor);
 
-    float effectiveCloudFactor = 1.0;
-    if (dayFactor > 0.01) {
-        vec2 cloudUV = vec2(uv.x * imageAspect, uv.y) * 1.25 + u_windParams.xy;
-
+    float cloudMask = 0.0;
+    if (dayFactor > 0.01 || finalCloudCover > 0.001) {
+        vec2 cloudUV = aspectUV * 1.25 + u_windParams.xy;
         float cloudNoise = fbm(cloudUV);
         float cloudThreshold = mix(0.62, 0.30, finalCloudCover);
-        float cloudMask = smoothstep(cloudThreshold, cloudThreshold + 0.18, cloudNoise);
+        cloudMask = smoothstep(cloudThreshold, cloudThreshold + 0.18, cloudNoise);
+    }
 
-        float cloudDimming = mix(0.12, 0.25, finalCloudCover);
+    float effectiveCloudFactor = 1.0;
+    if (dayFactor > 0.01) {
+        float cloudDimming = clamp(mix(0.12, 0.25, finalCloudCover) * u_cloudShadowBoost, 0.0, 0.95);
         float rawCloudFactor = mix(1.0, 1.0 - cloudDimming, cloudMask);
         effectiveCloudFactor = mix(1.0, rawCloudFactor, dayFactor);
     }
 
-    vec3 nightProcessed = pow(baseColor, vec3(1.0 + nightFactor * 0.30));
-    vec3 color = mix(nightProcessed, baseColor, dayFactor) * ambient;
+    vec3 color = baseColor;
+    if (nightFactor > 0.005 && dayFactor < 0.999) {
+        vec3 nightProcessed = pow(baseColor, vec3(1.0 + nightFactor * 0.30));
+        color = mix(nightProcessed, baseColor, dayFactor);
+    }
+    color *= u_ambient;
     color *= effectiveCloudFactor;
 
-    if (normRain < 0.65 && causticMask > 0.005) {
-        float sunVisibility = smoothstep(0.20, 0.55, dayFactor) * (1.0 - finalCloudCover * 0.65) * (1.0 - normRain);
-        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
-        float moonVisibility = moonEmerge * (1.0 - finalCloudCover * 0.70) * (1.0 - normRain * 0.65);
-
-        float dayCausticWeight = max(0.0, sunVisibility);
-        float nightCausticWeight = max(0.0, moonVisibility) * moonBoost;
-
-        if (dayCausticWeight > 0.001 || nightCausticWeight > 0.001) {
-            float caustics = getUnderwaterCaustics(distortedUV, animTime, causticMask);
-            if (dayCausticWeight > 0.001) {
-                vec3 dayCausticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
-                color += dayCausticTint * (caustics * 0.154 * dayCausticWeight * u_causticBoost);
-            }
-            if (nightCausticWeight > 0.001) {
-                vec3 nightCausticTint = mix(vec3(0.48, 0.72, 1.00), vec3(0.65, 0.86, 1.15), isFullMoonNight);
-                color += nightCausticTint * (caustics * 0.126 * nightCausticWeight * u_causticBoost);
-            }
+    if (charMask > 0.5 && normRain < 0.65 && waterMask > 0.02 && (u_causticWeights.x > 0.001 || u_causticWeights.y > 0.001)) {
+        float caustics = getUnderwaterCaustics(distortedUV, animTime, waterMask, u_sceneAspect);
+        if (u_causticWeights.x > 0.001) {
+            mediump vec3 dayCausticTint = mix(vec3(0.88, 0.96, 1.00), vec3(1.00, 0.82, 0.60), sunsetFactor);
+            color += dayCausticTint * (caustics * 0.154 * u_causticWeights.x);
+        }
+        if (u_causticWeights.y > 0.001) {
+            mediump vec3 nightCausticTint = mix(vec3(0.48, 0.72, 1.00), vec3(0.65, 0.86, 1.15), u_moonParams.x);
+            color += nightCausticTint * (caustics * 0.126 * u_causticWeights.y);
         }
     }
 
-    color += getCrepuscularRays(uv, animTime, dawnRay, sunsetRay, dawnFactor, sunsetFactor, finalCloudCover, normRain, origLum) * u_rayBoost;
+    color += getCrepuscularRays(uv, animTime, u_rayColorAndWindow, origLum);
 
-    if (morningMistWindow > 0.01 && mistDepthMask > 0.01) {
-        vec2 mistUV = vec2(uv.x * imageAspect, uv.y) * vec2(1.0, 2.5) + vec2(mod(animTime * 0.03, 2048.0), 0.0);
+    if (charMask > 0.5 && u_mistParams.a > 0.01 && mistDepthMask > 0.01) {
+        vec2 mistUV = aspectUV * vec2(1.0, 2.5) + vec2(animTime * 0.03, 0.0);
         float mistNoise = fbm(mistUV);
-        float mistDensity = mistNoise * mistDepthMask * morningMistWindow;
-        color = mix(color, mistColor, mistDensity * 0.65);
+        mediump float mistDensity = (mistNoise * mistDepthMask) * u_mistParams.a;
+        color = mix(color, u_mistParams.rgb, mistDensity * 0.65);
     }
 
-    if (nightFactor > 0.01) {
+    if (nightFactor > 0.01 && u_moonParams.y > 0.001) {
         vec2 moonCenter = vec2(0.50, 0.78);
         float moonDist = length((uv - moonCenter) * vec2(1.2, 1.0));
-        float moonBeam = 1.0 - smoothstep(0.1, 0.9, moonDist);
-        vec3 moonColor = vec3(0.55, 0.78, 1.05);
+        mediump float moonBeam = 1.0 - smoothstep(0.1, 0.9, moonDist);
+        mediump vec3 moonColor = vec3(0.55, 0.78, 1.05);
+        mediump float origLum2 = origLum * origLum;
 
-        float moonEmerge = smoothstep(0.15, 0.85, nightFactor) * max(0.0, 1.0 - max(dawnFactor, sunsetFactor) * 0.90);
+        color += moonColor * (moonBeam * u_moonParams.y);
+        color += moonColor * (origLum2 * u_moonParams.z);
 
-        color += moonColor * (moonBeam * 0.14 * moonBoost) * moonEmerge * (1.0 - normRain * 0.50);
-        color += moonColor * pow(origLum, 2.0) * (0.30 * moonBoost) * moonEmerge;
-
-        vec2 waterWaveUV = uv * 14.0 + mod(vec2(animTime * 0.12, animTime * 0.07), 2048.0);
-        float waterGlimmer = smoothstep(0.42, 0.78, noise(waterWaveUV));
-        color += moonColor * (waterGlimmer * pow(origLum, 2.5) * (0.40 * moonBoost)) * moonEmerge;
+        vec2 waterWaveUV = uv * 14.0 + vec2(animTime * 0.12, animTime * 0.07);
+        mediump float waterGlimmer = smoothstep(0.42, 0.78, noise(waterWaveUV));
+        color += moonColor * (waterGlimmer * origLum2 * sqrt(origLum) * u_moonParams.w);
     }
 
-    float fgRain = getForegroundRain(uv, rainIntensity, iTime);
-    float bgRain = getBackgroundRain(uv, rainIntensity, iTime);
-    color += mix(vec3(1.0), vec3(0.88, 0.94, 1.0), nightFactor) * (fgRain + bgRain) * mix(0.9, 1.0, nightFactor);
+    if (u_rainIntensity > 0.01) {
+        float fgRain = getForegroundRain(uv, normRain, animTime);
+        float bgRain = getBackgroundRain(uv, normRain, animTime);
+        mediump vec3 rainCol = mix(vec3(1.0), vec3(0.88, 0.94, 1.0), nightFactor);
+        color += rainCol * ((fgRain + bgRain) * mix(0.9, 1.0, nightFactor));
+    }
+
+    float mechaMask = step(0.5, textureLod(u_customMasksTexture, uv, 0.0).g);
+    if (mechaMask > 0.5 && u_wingDroplets > 0.001) {
+        vec4 wingWater = getWingRainDroplets(aspectUV, color, animTime, u_wingDroplets, normRain, mechaMask, dayFactor, nightFactor, sunsetFactor);
+        color *= (1.0 - wingWater.a);
+        color += wingWater.rgb;
+    }
 
     float gray = getLuminance(color);
-    float desatAmount = mix(0.30, 0.20, isFullMoonNight);
-    color = mix(color, vec3(gray), nightFactor * desatAmount);
+    color = mix(color, vec3(gray), u_miscFactors.x);
 
-    if (dayFactor > 0.20) {
-        vec2 gp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 60.0 + mod(vec2(animTime * 0.30, animTime * 0.20), 2048.0);
+    if (charMask > 0.5 && u_miscFactors.y > 0.001 && waterMask > 0.02) {
+        vec2 gp = aspectUV * 60.0 + vec2(animTime * 0.30, animTime * 0.20);
         float g = smoothstep(0.82, 0.95, noise(gp))
-                * smoothstep(0.82, 0.95, noise(gp * 1.7 + 9.0 + mod(animTime * 0.50, 2048.0)));
-        vec3 glintCol = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.75, 0.50), sunsetFactor);
-        color += glintCol * g * 0.50 * dayFactor
-                * (1.0 - finalCloudCover * 0.60) * (1.0 - normRain) * waterMask * u_glintBoost;
+                * smoothstep(0.82, 0.95, noise(gp * 1.7 + 9.0 + animTime * 0.50));
+        mediump vec3 glintCol = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.75, 0.50), sunsetFactor);
+        color += glintCol * (g * waterMask * (u_miscFactors.y * 0.5));
     }
 
-    if (nightFactor > 0.30 && finalCloudCover < 1.0) {
-        vec2 sp = vec2(uv.x * DEFAULT_IMAGE_ASPECT, uv.y) * 90.0 + rippleOffset * 80.0;
+    if (u_meteorWeight > 0.001 && maskReflectable > 0.005 && u_rainIntensity <= 0.01) {
+        float meteorVis = maskReflectable * clamp(1.0 - cloudMask * u_cloudShadowBoost, 0.0, 1.0);
+        if (u_meteorShower > 0.001) {
+            meteorVis *= smoothstep(0.48, 0.54, uv.y);
+        }
+        if (meteorVis > 0.001) {
+            vec3 meteorCol = getShootingStars(aspectUV, animTime, u_meteorWeight, u_meteorShower, u_meteorShowerDir, u_sceneAspect, u_sporadicStar);
+            color += meteorCol * meteorVis;
+        }
+    }
+
+    if (u_miscFactors.z > 0.001 && maskReflectable > 0.005) {
+        vec2 sp = aspectUV * 90.0 + rippleOffset * 80.0;
         vec2 cell = floor(sp);
-        float h = hash21(cell);
+        ivec2 cellI = ivec2(cell);
+        float h = hash21i(cellI);
 
         if (h > 0.985) {
-            vec2 f = fract(sp) - 0.5 - (hash22(cell) - 0.5) * 0.5;
+            vec2 f = fract(sp) - 0.5 - (hash22i(cellI) - 0.5) * 0.5;
             float r = length(f);
 
-            float speed1 = 2.2 + hash21(cell + vec2(3.1, 7.4)) * 3.6;
-            float speed2 = 1.0 + hash21(cell + vec2(8.9, 1.7)) * 2.8;
-            float phase1 = hash21(cell + vec2(5.5, 2.3)) * 6.2831853;
-            float phase2 = hash21(cell + vec2(1.2, 9.6)) * 6.2831853;
+            float speed1 = 2.2 + hash21i(cellI + ivec2(31, 74)) * 3.6;
+            float speed2 = 1.0 + hash21i(cellI + ivec2(89, 17)) * 2.8;
+            float phase1 = hash21i(cellI + ivec2(55, 23)) * TWO_PI;
+            float phase2 = hash21i(cellI + ivec2(12, 96)) * TWO_PI;
 
-            float s1 = sin(mod(iTime * speed1 + phase1, 6.2831853));
-            float s2 = sin(mod(iTime * speed2 + phase2, 6.2831853));
+            float s1 = sin(mod(animTime * speed1 + phase1, TWO_PI));
+            float s2 = sin(mod(animTime * speed2 + phase2, TWO_PI));
             float rawTwinkle = s1 * 0.60 + s2 * 0.40;
 
             float twinkleBase = clamp(rawTwinkle * 0.5 + 0.5, 0.0, 1.0);
             float twinkle = 0.15 + 0.85 * pow(twinkleBase, 2.4);
 
-            float sizeRandom = 0.85 + hash21(cell + vec2(4.7, 6.2)) * 0.40;
-            float core = 1.0 - smoothstep(0.0, 0.07 * sizeRandom, r);
+            float sizeRandom = 0.85 + hash21i(cellI + ivec2(47, 62)) * 0.40;
+            float core = 1.0 - smoothstep(0.0, 0.08 * sizeRandom, r);
             float halo = 1.0 - smoothstep(0.0, 0.22 * sizeRandom, r);
 
-            float flare = pow(twinkleBase, 6.0) * 0.70;
+            float t2 = twinkleBase * twinkleBase;
+            float flare = t2 * t2 * t2 * 0.70;
             float starShape = (core * 1.5 + halo * 0.5 + flare * core) * twinkle;
 
-            vec3 starColor = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 1.0, 1.0), core);
-            color += starColor * (starShape * 1.50 * nightFactor * u_starBoost)
-                   * waterMask * clamp(1.0 - finalCloudCover, 0.0, 1.0);
+            mediump vec3 starColor = mix(vec3(0.75, 0.90, 1.0), vec3(1.0, 1.0, 1.0), core);
+            color += starColor * (starShape * maskReflectable * u_miscFactors.z);
         }
     }
 
-    float fireflyActive = nightFactor * mix(0.55, 1.00, finalCloudCover) * (1.0 - normRain * 0.70);
-    color += getFireflies(uv, animTime, fireflyActive, u_fireflyBoost, charMask, u_maskTexture);
+    color += getFireflies(uv, aspectUV, animTime, u_miscFactors.w, charMask, u_maskTexture, u_sceneAspect);
 
-    vec3 excess = max(vec3(0.0), color - 0.82);
-    color += excess * excess * 0.45;
+    if (any(greaterThan(color, vec3(0.82)))) {
+        vec3 excess = max(vec3(0.0), color - 0.82);
+        color = min(color, vec3(0.82)) + 0.18 * (1.0 - exp(-excess / 0.18));
+    }
+
+    float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    float dither = (ign - 0.5) * (1.0 / 255.0);
+    color = clamp(color + dither, 0.0, 1.0);
 
     fragColor = vec4(color, 1.0);
 }`;
@@ -1088,49 +1707,141 @@ void main() {
             return shader;
         }
 
+        function createNoiseTexture(glContext) {
+            const size = NOISE_TEX_SIZE;
+            const data = new Uint8Array(size * size);
+            for (let i = 0; i < size * size; i++) {
+                let v = (Math.imul(i, 747796405) + 2891336453) >>> 0;
+                let w = Math.imul((v >>> ((v >>> 28) + 4)) ^ v, 277803737) >>> 0;
+                data[i] = ((w >>> 22) ^ w) >>> 24;
+            }
+            const tex = glContext.createTexture();
+            glContext.activeTexture(glContext.TEXTURE2);
+            glContext.bindTexture(glContext.TEXTURE_2D, tex);
+            glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_S, glContext.REPEAT);
+            glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_T, glContext.REPEAT);
+            glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MIN_FILTER, glContext.LINEAR);
+            glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MAG_FILTER, glContext.LINEAR);
+            glContext.texImage2D(glContext.TEXTURE_2D, 0, glContext.R8, size, size, 0, glContext.RED, glContext.UNSIGNED_BYTE, data);
+            return tex;
+        }
+
+        function showWebGLFallback(message) {
+            if (document.querySelector(".webgl-fallback")) return;
+            const el = document.createElement("div");
+            el.className = "webgl-fallback";
+            el.textContent = message;
+            document.body.appendChild(el);
+        }
+
         let gl = null;
         let program = null;
         let bakeProgram = null;
         let positionBuffer = null;
         let texture = null;
         let maskTexture = null;
+        let noiseTexture = null;
         let maskFBO = null;
+        let contextGeneration = 0;
 
+        let positionLoc = null;
         let bakePositionLoc = null;
         let bakeTexLoc = null;
+        let bakeUseDefaultMasksLoc = null;
+        let customMasksTexture = null;
+        let bakeCustomMasksTexLoc = null;
 
-        let uImgResLoc = null;
         let uUvTransformLoc = null;
         let uScaleModeLoc = null;
+        let uSceneAspectLoc = null;
         let uTimeLoc = null;
         let uTextureLoc = null;
         let uMaskTextureLoc = null;
-
+        let uNoiseTextureLoc = null;
+        let uCustomMasksTexLoc = null;
+        
         let uRainIntensityLoc = null;
         let uWindParamsLoc = null;
-        let uMoonBoostLoc = null;
+        let uRippleBoostLoc = null;
 
         let uAmbientLoc = null;
         let uDayNightFactorsLoc = null;
         let uWeatherFactorsLoc = null;
+        let uCloudShadowBoostLoc = null;
         let uMistParamsLoc = null;
-        let uIsFullMoonNightLoc = null;
 
-        let uCausticBoostLoc = null;
-        let uRayBoostLoc = null;
-        let uGlintBoostLoc = null;
-        let uStarBoostLoc = null;
-        let uRippleBoostLoc = null;
-        let uFireflyBoostLoc = null;
+        let uCausticWeightsLoc = null;
+        let uRayColorAndWindowLoc = null;
+        let uMoonParamsLoc = null;
+        let uMiscFactorsLoc = null;
+        let uMeteorWeightLoc = null;
+        let uMeteorShowerLoc = null;
+        let uMeteorShowerDirLoc = null;
+        let uSporadicStarLoc = null;
+        let uWingDropletsLoc = null;
+
+        const uniformCache = new Map();
+
+        function setUniform1f(loc, v0) {
+            if (!loc) return;
+            const prev = uniformCache.get(loc);
+            if (prev !== undefined && Math.abs(prev - v0) <= 1e-5) return;
+            uniformCache.set(loc, v0);
+            gl.uniform1f(loc, v0);
+        }
+
+        function setUniform2f(loc, v0, v1) {
+            if (!loc) return;
+            let prev = uniformCache.get(loc);
+            if (prev && Math.abs(prev[0] - v0) <= 1e-5 && Math.abs(prev[1] - v1) <= 1e-5) return;
+            if (!prev) {
+                uniformCache.set(loc, [v0, v1]);
+            } else {
+                prev[0] = v0;
+                prev[1] = v1;
+            }
+            gl.uniform2f(loc, v0, v1);
+        }
+
+        function setUniform3f(loc, v0, v1, v2) {
+            if (!loc) return;
+            let prev = uniformCache.get(loc);
+            if (prev && Math.abs(prev[0] - v0) <= 1e-5 && Math.abs(prev[1] - v1) <= 1e-5 && Math.abs(prev[2] - v2) <= 1e-5) return;
+            if (!prev) {
+                uniformCache.set(loc, [v0, v1, v2]);
+            } else {
+                prev[0] = v0;
+                prev[1] = v1;
+                prev[2] = v2;
+            }
+            gl.uniform3f(loc, v0, v1, v2);
+        }
+
+        function setUniform4f(loc, v0, v1, v2, v3) {
+            if (!loc) return;
+            let prev = uniformCache.get(loc);
+            if (prev && Math.abs(prev[0] - v0) <= 1e-5 && Math.abs(prev[1] - v1) <= 1e-5 && Math.abs(prev[2] - v2) <= 1e-5 && Math.abs(prev[3] - v3) <= 1e-5) return;
+            if (!prev) {
+                uniformCache.set(loc, [v0, v1, v2, v3]);
+            } else {
+                prev[0] = v0;
+                prev[1] = v1;
+                prev[2] = v2;
+                prev[3] = v3;
+            }
+            gl.uniform4f(loc, v0, v1, v2, v3);
+        }
 
         let imgWidth = 3107;
         let imgHeight = 1440;
+        let useDefaultMasks = 1;
         const uvTransform = new Float32Array([1, 1, 0, 0]);
 
         function updateUvTransform() {
-            if (!gl || !uUvTransformLoc) return;
+            if (!gl || gl.isContextLost() || !uUvTransformLoc || !program) return;
             const screenAspect = canvas.width / canvas.height;
             const imageAspect = (imgHeight > 0) ? (imgWidth / imgHeight) : 2.155;
+            const sceneAspect = (useDefaultMasks === 1) ? 2.155 : imageAspect;
             let sx = 1.0, sy = 1.0, ox = 0.0, oy = 0.0;
             const mode = (typeof state !== 'undefined' && state.scaleMode !== undefined) ? state.scaleMode : 0;
             if (mode === 0) {
@@ -1160,42 +1871,61 @@ void main() {
             uvTransform[3] = oy;
             gl.useProgram(program);
             gl.uniform4fv(uUvTransformLoc, uvTransform);
+            setUniform1f(uSceneAspectLoc, sceneAspect);
         }
 
         function initWebGLResources() {
+            contextGeneration += 1;
+            uniformCache.clear();
             gl = canvas.getContext("webgl2", { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: "high-performance" });
             if (!gl) {
-                alert("Browser does not support WebGL 2.0!");
+                showWebGLFallback("Browser does not support WebGL 2.0");
                 return false;
             }
 
             const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
             const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-            if (!vs || !fs) return false;
+            if (!vs || !fs) {
+                if (vs) gl.deleteShader(vs);
+                if (fs) gl.deleteShader(fs);
+                showWebGLFallback("Failed to compile wallpaper shaders.");
+                return false;
+            }
             program = gl.createProgram();
             gl.attachShader(program, vs);
             gl.attachShader(program, fs);
             gl.linkProgram(program);
+            gl.deleteShader(vs);
+            gl.deleteShader(fs);
 
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
                 console.error("Shader link error:", gl.getProgramInfoLog(program));
                 gl.deleteProgram(program);
                 program = null;
+                showWebGLFallback("Failed to link wallpaper shader program.");
                 return false;
             }
 
             const bakeVs = createShader(gl, gl.VERTEX_SHADER, bakeVsSource);
             const bakeFs = createShader(gl, gl.FRAGMENT_SHADER, bakeFsSource);
-            if (!bakeVs || !bakeFs) return false;
+            if (!bakeVs || !bakeFs) {
+                if (bakeVs) gl.deleteShader(bakeVs);
+                if (bakeFs) gl.deleteShader(bakeFs);
+                showWebGLFallback("Failed to compile mask shaders.");
+                return false;
+            }
             bakeProgram = gl.createProgram();
             gl.attachShader(bakeProgram, bakeVs);
             gl.attachShader(bakeProgram, bakeFs);
             gl.linkProgram(bakeProgram);
+            gl.deleteShader(bakeVs);
+            gl.deleteShader(bakeFs);
 
             if (!gl.getProgramParameter(bakeProgram, gl.LINK_STATUS)) {
                 console.error("Bake link error:", gl.getProgramInfoLog(bakeProgram));
                 gl.deleteProgram(bakeProgram);
                 bakeProgram = null;
+                showWebGLFallback("Failed to link mask shader program.");
                 return false;
             }
 
@@ -1205,48 +1935,51 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
                 -1, -1,
-                 3, -1,
-                -1,  3
+                3, -1,
+                -1, 3
             ]), gl.STATIC_DRAW);
 
             bakePositionLoc = gl.getAttribLocation(bakeProgram, "a_position");
             bakeTexLoc = gl.getUniformLocation(bakeProgram, "u_texture");
+            bakeUseDefaultMasksLoc = gl.getUniformLocation(bakeProgram, "u_useDefaultMasks");
+            bakeCustomMasksTexLoc = gl.getUniformLocation(bakeProgram, "u_customMasksTexture");
 
-            const positionLoc = gl.getAttribLocation(program, "a_position");
+            positionLoc = gl.getAttribLocation(program, "a_position");
             gl.enableVertexAttribArray(positionLoc);
             gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
 
-            uImgResLoc = gl.getUniformLocation(program, "u_imageResolution");
             uUvTransformLoc = gl.getUniformLocation(program, "u_uvTransform");
             uScaleModeLoc = gl.getUniformLocation(program, "u_scaleMode");
+            uSceneAspectLoc = gl.getUniformLocation(program, "u_sceneAspect");
             uTimeLoc = gl.getUniformLocation(program, "u_time");
             uTextureLoc = gl.getUniformLocation(program, "u_texture");
             uMaskTextureLoc = gl.getUniformLocation(program, "u_maskTexture");
-
+            uNoiseTextureLoc = gl.getUniformLocation(program, "u_noiseTexture");
+            uCustomMasksTexLoc = gl.getUniformLocation(program, "u_customMasksTexture");
+            
             uRainIntensityLoc = gl.getUniformLocation(program, "u_rainIntensity");
             uWindParamsLoc = gl.getUniformLocation(program, "u_windParams");
-            uMoonBoostLoc = gl.getUniformLocation(program, "u_moonBoost");
+            uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
 
             uAmbientLoc = gl.getUniformLocation(program, "u_ambient");
             uDayNightFactorsLoc = gl.getUniformLocation(program, "u_dayNightFactors");
             uWeatherFactorsLoc = gl.getUniformLocation(program, "u_weatherFactors");
+            uCloudShadowBoostLoc = gl.getUniformLocation(program, "u_cloudShadowBoost");
             uMistParamsLoc = gl.getUniformLocation(program, "u_mistParams");
-            uIsFullMoonNightLoc = gl.getUniformLocation(program, "u_isFullMoonNight");
 
-            uCausticBoostLoc = gl.getUniformLocation(program, "u_causticBoost");
-            uRayBoostLoc = gl.getUniformLocation(program, "u_rayBoost");
-            uGlintBoostLoc = gl.getUniformLocation(program, "u_glintBoost");
-            uStarBoostLoc = gl.getUniformLocation(program, "u_starBoost");
-            uRippleBoostLoc = gl.getUniformLocation(program, "u_rippleBoost");
-            uFireflyBoostLoc = gl.getUniformLocation(program, "u_fireflyBoost");
+            uCausticWeightsLoc = gl.getUniformLocation(program, "u_causticWeights");
+            uRayColorAndWindowLoc = gl.getUniformLocation(program, "u_rayColorAndWindow");
+            uMoonParamsLoc = gl.getUniformLocation(program, "u_moonParams");
+            uMiscFactorsLoc = gl.getUniformLocation(program, "u_miscFactors");
+            uMeteorWeightLoc = gl.getUniformLocation(program, "u_meteorWeight");
+            uMeteorShowerLoc = gl.getUniformLocation(program, "u_meteorShower");
+            uMeteorShowerDirLoc = gl.getUniformLocation(program, "u_meteorShowerDir");
+            uSporadicStarLoc = gl.getUniformLocation(program, "u_sporadicStar");
+            uWingDropletsLoc = gl.getUniformLocation(program, "u_wingDroplets");
 
             gl.uniform1i(uScaleModeLoc, state.scaleMode);
-            gl.uniform1f(uCausticBoostLoc, state.causticBoost);
-            gl.uniform1f(uRayBoostLoc, state.rayBoost);
-            gl.uniform1f(uGlintBoostLoc, state.glintBoost);
-            gl.uniform1f(uStarBoostLoc, state.starBoost);
-            gl.uniform1f(uRippleBoostLoc, state.rippleBoost);
-            gl.uniform1f(uFireflyBoostLoc, state.fireflyBoost);
+            setUniform1f(uRippleBoostLoc, state.rippleBoost);
+            setUniform1f(uCloudShadowBoostLoc, state.cloudShadowBoost);
 
             texture = gl.createTexture();
             gl.activeTexture(gl.TEXTURE0);
@@ -1266,21 +1999,39 @@ void main() {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
 
+            customMasksTexture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, customMasksTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+
+
+            noiseTexture = createNoiseTexture(gl);
+
             maskFBO = gl.createFramebuffer();
 
             gl.uniform1i(uTextureLoc, 0);
             gl.uniform1i(uMaskTextureLoc, 1);
-
+            gl.uniform1i(uNoiseTextureLoc, 2);
+            gl.uniform1i(uCustomMasksTexLoc, 3);
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, customMasksTexture);
+                                    
+            updateUvTransform();
             return true;
         }
 
         initWebGLResources();
 
         function bakeMasks(w, h) {
-            if (!gl || !bakeProgram || !maskFBO || !maskTexture) return;
-            const bakeW = Math.max(1, Math.round(w * 0.5));
-            const bakeH = Math.max(1, Math.round(h * 0.5));
+            if (!gl || gl.isContextLost() || !bakeProgram || !maskFBO || !maskTexture) return;
+            const bakeW = (imgWidth > 0) ? imgWidth : Math.max(1, Math.round(w));
+            const bakeH = (imgHeight > 0) ? imgHeight : Math.max(1, Math.round(h));
 
+            gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, maskTexture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bakeW, bakeH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
@@ -1295,6 +2046,9 @@ void main() {
             }
 
             gl.viewport(0, 0, bakeW, bakeH);
+            if (bakePositionLoc !== positionLoc && positionLoc >= 0) {
+                gl.disableVertexAttribArray(positionLoc);
+            }
             gl.useProgram(bakeProgram);
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             gl.enableVertexAttribArray(bakePositionLoc);
@@ -1303,69 +2057,138 @@ void main() {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.uniform1i(bakeTexLoc, 0);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, customMasksTexture);
+            gl.uniform1i(bakeCustomMasksTexLoc, 2);
+            gl.uniform1i(bakeUseDefaultMasksLoc, useDefaultMasks);
 
             gl.drawArrays(gl.TRIANGLES, 0, 3);
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-            const posLoc = gl.getAttribLocation(program, "a_position");
+            if (bakePositionLoc !== positionLoc && bakePositionLoc >= 0) {
+                gl.disableVertexAttribArray(bakePositionLoc);
+            }
             gl.useProgram(program);
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.enableVertexAttribArray(posLoc);
-            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(positionLoc);
+            gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, customMasksTexture);
+            
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
 
-        function applyImageToTexture(img) {
-            if (!gl || !texture) return;
-            imgWidth = img.naturalWidth || img.width || 3107;
-            imgHeight = img.naturalHeight || img.height || 1440;
+        function applyImageToTexture(source, expectedGen, isDefaultAsset, alreadyFlippedY) {
+            if (!gl || gl.isContextLost() || !texture || expectedGen !== contextGeneration) {
+                if (source && typeof source.close === "function") source.close();
+                return;
+            }
+            useDefaultMasks = isDefaultAsset ? 1 : 0;
+            imgWidth = source.naturalWidth || source.width || 3107;
+            imgHeight = source.naturalHeight || source.height || 1440;
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, !alreadyFlippedY);
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+            } catch (err) {
+                console.error("Failed to upload wallpaper texture:", err);
+                showWebGLFallback("Failed to upload wallpaper image (cross-origin or security restriction).");
+                if (typeof source.close === "function") source.close();
+                return;
+            }
+            if (typeof source.close === "function") source.close();
+
             gl.generateMipmap(gl.TEXTURE_2D);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-            if (uImgResLoc) {
-                gl.useProgram(program);
-                gl.uniform2f(uImgResLoc, imgWidth, imgHeight);
-            }
             bakeMasks(imgWidth, imgHeight);
             updateUvTransform();
             const badge = document.getElementById("img-status");
             if (badge) badge.innerText = `(${imgWidth}x${imgHeight})`;
         }
 
-        function loadFromDataUrl(dataUrl) {
+        function loadFromDataUrl(dataUrl, isDefaultAsset) {
+            const gen = contextGeneration;
+            if (typeof createImageBitmap === "function") {
+                fetch(dataUrl)
+                    .then((res) => {
+                        if (!res.ok) throw new Error("Blob fetch failed");
+                        return res.blob();
+                    })
+                    .then((blob) => createImageBitmap(blob, { imageOrientation: "flipY" }))
+                    .then((bitmap) => {
+                        applyImageToTexture(bitmap, gen, isDefaultAsset, true);
+                    })
+                    .catch(() => {
+                        const img = new Image();
+                        img.onload = () => applyImageToTexture(img, gen, isDefaultAsset, false);
+                        img.onerror = () => {
+                            const badge = document.getElementById("img-status");
+                            if (badge) badge.innerText = "(Image Decode Error)";
+                        };
+                        img.src = dataUrl;
+                    });
+                return;
+            }
+
             const img = new Image();
-            img.onload = () => {
-                applyImageToTexture(img);
+            img.onload = () => applyImageToTexture(img, gen, isDefaultAsset, false);
+            img.onerror = () => {
+                const badge = document.getElementById("img-status");
+                if (badge) badge.innerText = "(Image Decode Error)";
             };
             img.src = dataUrl;
         }
 
+        function initCustomMasksTexture() {
+            if (!gl || gl.isContextLost()) return;
+            const expectedGen = contextGeneration;
+            const mImg = new Image();
+            mImg.onload = function () {
+                if (!gl || gl.isContextLost() || !customMasksTexture || expectedGen !== contextGeneration) return;
+                gl.activeTexture(gl.TEXTURE3);
+                gl.bindTexture(gl.TEXTURE_2D, customMasksTexture);
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mImg);
+                const targetW = (imgWidth > 0) ? imgWidth : canvas.width;
+                const targetH = (imgHeight > 0) ? imgHeight : canvas.height;
+                if (targetW > 0 && targetH > 0) {
+                    bakeMasks(targetW, targetH);
+                }
+            };
+            if (typeof window.DEFAULT_CUSTOM_MASKS === "string" && window.DEFAULT_CUSTOM_MASKS.length > 0) {
+                mImg.src = window.DEFAULT_CUSTOM_MASKS;
+            } else {
+                mImg.src = "masks/custom_masks_packed.png?v=20261115f";
+            }
+        }
+
         function initWallpaperImage() {
-            if (window.DEFAULT_WALLPAPER) {
-                loadFromDataUrl(window.DEFAULT_WALLPAPER);
+                        initCustomMasksTexture();
+            if (typeof window.DEFAULT_WALLPAPER === "string" && window.DEFAULT_WALLPAPER.length > 0) {
+                loadFromDataUrl(window.DEFAULT_WALLPAPER, true);
                 return;
             }
 
             try {
                 const saved = localStorage.getItem("weather_wallpaper_custom");
                 if (saved) {
-                    loadFromDataUrl(saved);
+                    loadFromDataUrl(saved, false);
                     return;
                 }
             } catch (e) { }
 
+            const gen = contextGeneration;
             const img = new Image();
             img.onload = () => {
-                applyImageToTexture(img);
+                applyImageToTexture(img, gen, true, false);
             };
             img.onerror = () => {
                 const badge = document.getElementById("img-status");
@@ -1377,7 +2200,7 @@ void main() {
         initWallpaperImage();
 
         function resize() {
-            if (!gl) return;
+            if (!gl || gl.isContextLost()) return;
             const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
             const w = Math.round(window.innerWidth * dpr);
             const h = Math.round(window.innerHeight * dpr);
@@ -1391,164 +2214,466 @@ void main() {
         window.addEventListener("resize", resize);
         resize();
 
+        const moonInfoEl = document.getElementById("moon-info");
+        const timeInfoEl = document.getElementById("time-info");
+        const metarInfoEl = document.getElementById("metar-info");
+        const sliderTime = document.getElementById("slider-time");
+        const valTime = document.getElementById("val-time");
+        const badgeTimeMode = document.getElementById("badge-time-mode");
+        const sliderCloud = document.getElementById("slider-cloud");
+        const valCloud = document.getElementById("val-cloud");
+        const badgeCloudMode = document.getElementById("badge-cloud-mode");
+        const sliderRain = document.getElementById("slider-rain");
+        const valRain = document.getElementById("val-rain");
+        const badgeRainMode = document.getElementById("badge-rain-mode");
+        const sliderWind = document.getElementById("slider-wind");
+        const valWind = document.getElementById("val-wind");
+        const badgeWindMode = document.getElementById("badge-wind-mode");
+        const sliderWindDir = document.getElementById("slider-wind-dir");
+        const valWindDir = document.getElementById("val-wind-dir");
+        const sliderMist = document.getElementById("slider-mist");
+        const valMist = document.getElementById("val-mist");
+        const badgeMistMode = document.getElementById("badge-mist-mode");
+        const badgeScaleMode = document.getElementById("badge-scale-mode");
+
+        let lastDisplayedMoonText = "";
+        let lastDisplayedMetarText = "";
+
+        function updateMoonHud(phaseVal) {
+            if (!moonInfoEl) return;
+            const moonFullness = Math.round((1.0 - Math.abs(2.0 * phaseVal - 1.0)) * 100);
+            const text = `Moon Phase: ${getMoonPhaseName(phaseVal)} (${moonFullness}% illumination)`;
+            if (text !== lastDisplayedMoonText) {
+                lastDisplayedMoonText = text;
+                moonInfoEl.textContent = text;
+            }
+        }
+
+        function updateMetarInfoHud() {
+            if (!metarInfoEl) return;
+            const tempText = (typeof targetWeather.tempC === "number") ? `${targetWeather.tempC.toFixed(1)}°C` : "--°C";
+            const visText = (targetWeather.visibMiles >= 10) ? "10+ mi" : `${targetWeather.visibMiles.toFixed(1)} mi`;
+            const wxTag = targetWeather.wxString ? ` [${targetWeather.wxString}]` : "";
+            const ageTag = (targetWeather.sourceName === "AWC") ? formatObsAgeLabel(targetWeather.obsTimeSec) : "";
+            const text = `Station: ${targetWeather.stationId}${ageTag} | ${tempText} | Vis: ${visText}${wxTag}`;
+            if (text !== lastDisplayedMetarText) {
+                lastDisplayedMetarText = text;
+                metarInfoEl.textContent = text;
+            }
+        }
+
+        function updateMistUi() {
+            if (state.mistMode === 0) {
+                badgeMistMode.textContent = `Auto (${targetWeather.mistLabel})`;
+                const pct = Math.round(targetWeather.apiMist * 100);
+                valMist.textContent = `${pct}%`;
+                sliderMist.value = pct;
+            } else if (state.mistMode === 1) {
+                badgeMistMode.textContent = "Always On";
+                valMist.textContent = "100%";
+                sliderMist.value = 100;
+            } else if (state.mistMode === 2) {
+                badgeMistMode.textContent = "Always Off";
+                valMist.textContent = "0%";
+                sliderMist.value = 0;
+            } else {
+                badgeMistMode.textContent = "Manual";
+                const pct = Math.round(state.manualMist * 100);
+                valMist.textContent = `${pct}%`;
+                sliderMist.value = pct;
+            }
+        }
+
+        function syncWeatherHudFromTarget(cloudPct, rainMm, speedKmh, windDeg) {
+            updateMetarInfoHud();
+
+            const cloudInfo = document.getElementById("cloud-info");
+            if (cloudInfo) {
+                const cloudDesc = cloudPct < 30 ? "Clear" : (cloudPct < 70 ? "Partly Cloudy" : "Overcast");
+                cloudInfo.textContent = `Cloud: ${Math.round(cloudPct)}% (${cloudDesc})`;
+            }
+
+            const rainInfo = document.getElementById("rain-info");
+            if (rainInfo) {
+                rainInfo.textContent = `Rain: ${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
+            }
+
+            const windInfo = document.getElementById("wind-info");
+            if (windInfo) {
+                const gustText = (targetWeather.gustKmh > speedKmh) ? ` (Gust ${targetWeather.gustKmh.toFixed(1)})` : "";
+                const dirLabel = targetWeather.isVariableWind ? "VRB" : getWindCompass(windDeg);
+                windInfo.textContent = `Wind: ${speedKmh.toFixed(1)} km/h${gustText} (${dirLabel})`;
+            }
+
+            const sunInfo = document.getElementById("sun-info");
+            if (sunInfo) {
+                sunInfo.textContent = `Sun: Rise ${formatHour(targetWeather.sunriseHour)} - Set ${formatHour(targetWeather.sunsetHour)}`;
+            }
+
+            updateMoonHud(targetWeather.moonPhase);
+
+            if (state.cloudMode === 0) {
+                if (valCloud) valCloud.textContent = `${Math.round(cloudPct)}%`;
+                if (sliderCloud) sliderCloud.value = Math.round(cloudPct);
+            }
+            if (state.rainMode === 0) {
+                if (valRain) valRain.textContent = `${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
+                if (sliderRain) sliderRain.value = Math.min(rainMm, 20.0);
+            }
+            if (state.windMode === 0) {
+                if (valWind) valWind.textContent = `${speedKmh.toFixed(1)} km/h`;
+                if (sliderWind) sliderWind.value = Math.min(speedKmh, 40.0);
+                if (valWindDir) valWindDir.textContent = targetWeather.isVariableWind ? "VRB" : `${Math.round(windDeg)}° (${getWindCompass(windDeg)})`;
+                if (sliderWindDir) sliderWindDir.value = Math.round(windDeg);
+            }
+            if (state.mistMode === 0) {
+                updateMistUi();
+            }
+        }
+
         let hasInitializedWeather = false;
+        let isFetchingWeather = false;
+        let lastWeatherFetchMs = 0;
+        let weatherRetryTimer = null;
+        let weatherRetryDelayMs = 15000;
+
+        async function fetchJsonWithTimeout(url, timeoutMs, externalSignal) {
+            const controller = new AbortController();
+            const onExternalAbort = () => controller.abort();
+            if (externalSignal) {
+                if (externalSignal.aborted) {
+                    controller.abort();
+                } else {
+                    externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+                }
+            }
+            const timerId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return await res.json();
+            } finally {
+                clearTimeout(timerId);
+                if (externalSignal) {
+                    externalSignal.removeEventListener("abort", onExternalAbort);
+                }
+            }
+        }
+
+        async function fetchAwcMetar(stationId) {
+            const encodedStation = encodeURIComponent(stationId);
+            const endpoints = [
+                `${AWC_LOCAL_PROXY}?ids=${encodedStation}&hours=2`,
+                `${AWC_API_BASE}?ids=${encodedStation}&format=json&hours=2`
+            ];
+
+            let lastError = new Error("All AWC METAR endpoints unreachable");
+
+            for (const targetUrl of endpoints) {
+                try {
+                    const data = await fetchJsonWithTimeout(targetUrl, WEATHER_FETCH_TIMEOUT_MS);
+                    if (!Array.isArray(data) || data.length === 0) {
+                        throw new Error("Empty METAR payload");
+                    }
+                    data.sort((a, b) => {
+                        const ta = getMetarObsEpochSec(a);
+                        const tb = getMetarObsEpochSec(b);
+                        return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+                    });
+                    const obsSec = getMetarObsEpochSec(data[0]);
+                    if (!Number.isFinite(obsSec)) {
+                        throw new Error("Missing obsTime");
+                    }
+                    const ageMin = (Date.now() / 1000.0 - obsSec) / 60.0;
+                    if (ageMin > MAX_METAR_AGE_MINUTES) {
+                        throw new Error("Stale METAR " + Math.round(ageMin) + " min");
+                    }
+                    return data[0];
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+
+            throw lastError;
+        }
+
+        async function fetchOpenMeteoFallback() {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=temperature_2m,relative_humidity_2m,precipitation,rain,weather_code,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m&daily=sunrise,sunset&timezone=auto`;
+            return await fetchJsonWithTimeout(url, WEATHER_FETCH_TIMEOUT_MS);
+        }
+
+        function scheduleEarlyWeatherRetry() {
+            if (hasInitializedWeather || weatherRetryTimer !== null) return;
+            const delay = weatherRetryDelayMs;
+            weatherRetryDelayMs = Math.min(weatherRetryDelayMs * 2, 60000);
+            weatherRetryTimer = setTimeout(() => {
+                weatherRetryTimer = null;
+                updateWeather();
+            }, delay);
+        }
 
         async function updateWeather() {
+            if (isFetchingWeather) return;
+            isFetchingWeather = true;
+
             const statusDot = document.getElementById("status-dot");
             const statusText = document.getElementById("status-text");
 
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=precipitation,rain,cloud_cover,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto`;
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                const data = await res.json();
+                let cloudPct = 50.0;
+                let rainMm = 0.0;
+                let speedKmh = 5.0;
+                let windDeg = targetWeather.windRad * (180.0 / Math.PI);
+                const nowMs = Date.now();
 
-                if (data.utc_offset_seconds !== undefined) {
-                    targetWeather.utcOffsetSeconds = data.utc_offset_seconds;
+                try {
+                    const metar = await fetchAwcMetar(ICAO_STATION);
+                    const wxString = (typeof metar.wxString === "string") ? metar.wxString.trim() : "";
+
+                    targetWeather.sourceName = "AWC";
+                    targetWeather.stationId = metar.icaoId || ICAO_STATION;
+                    targetWeather.obsTimeSec = getMetarObsEpochSec(metar);
+                    targetWeather.wxString = wxString;
+                    targetWeather.tempC = (typeof metar.temp === "number") ? metar.temp : null;
+                    targetWeather.dewpC = (typeof metar.dewp === "number") ? metar.dewp : null;
+                    targetWeather.visibMiles = parseMetarVisibilityMiles(metar.visib);
+
+                    const cloudDensity = parseMetarCloudCover(metar.clouds, wxString, metar.rawOb);
+                    cloudPct = cloudDensity * 100.0;
+                    targetWeather.cloudDensity = cloudDensity;
+
+                    rainMm = parseMetarRainMm(wxString);
+                    targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
+
+                    const windKt = (typeof metar.wspd === "number") ? metar.wspd : 0;
+                    speedKmh = windKt * KNOTS_TO_KMH;
+                    const gustKt = (typeof metar.wgst === "number") ? metar.wgst : 0;
+                    targetWeather.gustKmh = gustKt * KNOTS_TO_KMH;
+
+                    const effectiveWindKmh = gustKt > windKt ? (speedKmh * 0.7 + targetWeather.gustKmh * 0.3) : speedKmh;
+                    targetWeather.windSpeed = Math.min(0.35, effectiveWindKmh / 50.0);
+
+                    if (typeof metar.wdir === "number" && Number.isFinite(metar.wdir)) {
+                        windDeg = metar.wdir;
+                        targetWeather.windRad = windDeg * (Math.PI / 180.0);
+                        targetWeather.isVariableWind = false;
+                    } else if (typeof metar.wdir === "string" && metar.wdir.toUpperCase() === "VRB") {
+                        targetWeather.isVariableWind = true;
+                    }
+
+                    const mistState = parseMetarMistState(
+                        targetWeather.visibMiles,
+                        wxString,
+                        targetWeather.tempC,
+                        targetWeather.dewpC
+                    );
+                    targetWeather.apiMist = mistState.density;
+                    targetWeather.mistWarmth = mistState.warmth;
+                    targetWeather.mistLabel = mistState.label;
+
+                    const sunTimes = calculateSunTimes(LATITUDE, LONGITUDE, nowMs, targetWeather.utcOffsetSeconds);
+                    targetWeather.sunriseHour = sunTimes.sunriseHour;
+                    targetWeather.sunsetHour = sunTimes.sunsetHour;
+                } catch (awcErr) {
+                    const data = await fetchOpenMeteoFallback();
+                    const cur = data.current || {};
+
+                    if (data.utc_offset_seconds !== undefined) {
+                        targetWeather.utcOffsetSeconds = data.utc_offset_seconds;
+                    }
+
+                    targetWeather.sourceName = "Open-Meteo";
+                    targetWeather.stationId = "Open-Meteo";
+                    targetWeather.obsTimeSec = null;
+                    targetWeather.isVariableWind = false;
+                    targetWeather.tempC = (typeof cur.temperature_2m === "number") ? cur.temperature_2m : null;
+                    targetWeather.dewpC = null;
+
+                    const visMeters = (typeof cur.visibility === "number") ? cur.visibility : 16000;
+                    targetWeather.visibMiles = Math.min(10.0, visMeters / 1609.344);
+
+                    const wmoCode = (typeof cur.weather_code === "number") ? cur.weather_code : 0;
+                    let fallbackWx = "";
+                    if (wmoCode === 45 || wmoCode === 48) fallbackWx = "FG";
+                    else if (wmoCode >= 95) fallbackWx = "TSRA";
+                    else if (wmoCode >= 61 && wmoCode <= 67) fallbackWx = "RA";
+                    else if (wmoCode >= 51 && wmoCode <= 57) fallbackWx = "DZ";
+                    targetWeather.wxString = fallbackWx;
+
+                    cloudPct = (typeof cur.cloud_cover === "number") ? cur.cloud_cover : 50.0;
+                    targetWeather.cloudDensity = Math.max(0.0, Math.min(1.0, cloudPct / 100.0));
+
+                    rainMm = (cur.precipitation !== undefined ? cur.precipitation : (cur.rain !== undefined ? cur.rain : 0.0)) || 0.0;
+                    targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
+
+                    speedKmh = (typeof cur.wind_speed_10m === "number") ? cur.wind_speed_10m : 5.0;
+                    targetWeather.gustKmh = (typeof cur.wind_gusts_10m === "number") ? cur.wind_gusts_10m : 0.0;
+                    targetWeather.windSpeed = Math.min(0.35, speedKmh / 50.0);
+
+                    windDeg = (typeof cur.wind_direction_10m === "number") ? cur.wind_direction_10m : 45.0;
+                    targetWeather.windRad = windDeg * (Math.PI / 180.0);
+
+                    const mistState = parseMetarMistState(targetWeather.visibMiles, fallbackWx, null, null);
+                    targetWeather.apiMist = mistState.density;
+                    targetWeather.mistWarmth = mistState.warmth;
+                    targetWeather.mistLabel = mistState.label;
+
+                    if (data.daily) {
+                        const targetDate = getTargetLocationDate(nowMs);
+                        const y = targetDate.getUTCFullYear();
+                        const m = String(targetDate.getUTCMonth() + 1).padStart(2, "0");
+                        const d = String(targetDate.getUTCDate()).padStart(2, "0");
+                        const dateKey = `${y}-${m}-${d}`;
+                        let dayIdx = 0;
+                        if (data.daily.time) {
+                            const idx = data.daily.time.indexOf(dateKey);
+                            if (idx !== -1) dayIdx = idx;
+                        }
+                        if (data.daily.sunrise && data.daily.sunrise[dayIdx]) {
+                            const parts = data.daily.sunrise[dayIdx].split("T")[1].split(":");
+                            targetWeather.sunriseHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                        }
+                        if (data.daily.sunset && data.daily.sunset[dayIdx]) {
+                            const parts = data.daily.sunset[dayIdx].split("T")[1].split(":");
+                            targetWeather.sunsetHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
+                        }
+                    }
                 }
 
-                const cloudPct = (data.current && data.current.cloud_cover !== undefined) ? data.current.cloud_cover : 50;
-                targetWeather.cloudDensity = Math.max(0.0, Math.min(1.0, cloudPct / 100.0));
+                targetWeather.moonPhase = getAstronomicalMoonPhase(nowMs);
+                lastWeatherFetchMs = performance.now();
+                saveCachedWeather();
 
-                const rainMm = (data.current && (data.current.precipitation !== undefined ? data.current.precipitation : (data.current.rain !== undefined ? data.current.rain : 0.0))) || 0.0;
-                targetWeather.rainIntensity = Math.min(rainMm / 3.0, 20.0 / 3.0);
-
-                const speedKmh = (data.current && data.current.wind_speed_10m !== undefined) ? data.current.wind_speed_10m : 5.0;
-                targetWeather.windSpeed = Math.max(0.08, Math.min(0.35, speedKmh / 50.0));
-                const windDeg = (data.current && data.current.wind_direction_10m !== undefined) ? data.current.wind_direction_10m : 45.0;
-                targetWeather.windRad = windDeg * (Math.PI / 180.0);
-
-                targetWeather.moonPhase = getAstronomicalMoonPhase();
-
-                if (data.daily) {
-                    const now = new Date();
-                    const y = now.getFullYear();
-                    const m = String(now.getMonth() + 1).padStart(2, "0");
-                    const d = String(now.getDate()).padStart(2, "0");
-                    const dateKey = `${y}-${m}-${d}`;
-                    let dayIdx = 0;
-                    if (data.daily.time) {
-                        const idx = data.daily.time.indexOf(dateKey);
-                        if (idx !== -1) dayIdx = idx;
-                    }
-                    if (data.daily.sunrise && data.daily.sunrise[dayIdx]) {
-                        const parts = data.daily.sunrise[dayIdx].split("T")[1].split(":");
-                        targetWeather.sunriseHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
-                    }
-                    if (data.daily.sunset && data.daily.sunset[dayIdx]) {
-                        const parts = data.daily.sunset[dayIdx].split("T")[1].split(":");
-                        targetWeather.sunsetHour = parseFloat(parts[0]) + parseFloat(parts[1]) / 60.0;
-                    }
+                if (weatherRetryTimer !== null) {
+                    clearTimeout(weatherRetryTimer);
+                    weatherRetryTimer = null;
                 }
+                weatherRetryDelayMs = 15000;
 
                 if (!hasInitializedWeather) {
                     currentWeather.cloudDensity = targetWeather.cloudDensity;
                     currentWeather.rainIntensity = targetWeather.rainIntensity;
                     currentWeather.windSpeed = targetWeather.windSpeed;
                     currentWeather.windRad = targetWeather.windRad;
+                    currentWeather.apiMist = targetWeather.apiMist;
+                    currentWeather.mistWarmth = targetWeather.mistWarmth;
                     currentWeather.sunriseHour = targetWeather.sunriseHour;
                     currentWeather.sunsetHour = targetWeather.sunsetHour;
                     currentWeather.moonPhase = targetWeather.moonPhase;
                     currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
+                    currentWeather.moonUserBoost = state.moonBoost;
                     hasInitializedWeather = true;
                 }
 
                 if (statusDot) statusDot.className = "hud-status connected";
-                if (statusText) statusText.innerText = `Open-Meteo OK (${new Date().toLocaleTimeString()})`;
-
-                const cloudInfo = document.getElementById("cloud-info");
-                if (cloudInfo) {
-                    const cloudDesc = cloudPct < 30 ? "Clear" : (cloudPct < 70 ? "Partly Cloudy" : "Overcast");
-                    cloudInfo.innerText = `Cloud: ${cloudPct}% (${cloudDesc})`;
+                if (statusText) {
+                    const labelPrefix = targetWeather.sourceName === "AWC"
+                        ? `AWC ${targetWeather.stationId} OK`
+                        : "Open-Meteo Fallback";
+                    statusText.textContent = `${labelPrefix} (${new Date().toLocaleTimeString()})`;
                 }
 
-                const rainInfo = document.getElementById("rain-info");
-                if (rainInfo) {
-                    rainInfo.innerText = `Rain: ${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
-                }
-
-                const windInfo = document.getElementById("wind-info");
-                if (windInfo) {
-                    windInfo.innerText = `Wind: ${speedKmh.toFixed(1)} km/h (Direction ${getWindCompass(windDeg)})`;
-                }
-
-                const sunInfo = document.getElementById("sun-info");
-                if (sunInfo) {
-                    sunInfo.innerText = `Sun: Rise ${formatHour(targetWeather.sunriseHour)} - Set ${formatHour(targetWeather.sunsetHour)}`;
-                }
-
-                const moonInfo = document.getElementById("moon-info");
-                if (moonInfo) {
-                    const moonFullness = Math.round((1.0 - Math.abs(2.0 * targetWeather.moonPhase - 1.0)) * 100);
-                    moonInfo.innerText = `Moon Phase: ${getMoonPhaseName(targetWeather.moonPhase)} (${moonFullness}% illumination)`;
-                }
-
-                if (state.cloudMode === 0) {
-                    const el = document.getElementById("val-cloud");
-                    if (el) el.innerText = `${cloudPct}%`;
-                    const sl = document.getElementById("slider-cloud");
-                    if (sl) sl.value = cloudPct;
-                }
-                if (state.rainMode === 0) {
-                    const el = document.getElementById("val-rain");
-                    if (el) el.innerText = `${rainMm.toFixed(1)} mm/h (${getRainDescription(rainMm)})`;
-                    const sl = document.getElementById("slider-rain");
-                    if (sl) sl.value = Math.min(rainMm, 20.0);
-                }
-                if (state.windMode === 0) {
-                    const el = document.getElementById("val-wind");
-                    if (el) el.innerText = `${speedKmh.toFixed(1)} km/h`;
-                    const sl = document.getElementById("slider-wind");
-                    if (sl) sl.value = Math.min(speedKmh, 40.0);
-                    const elDir = document.getElementById("val-wind-dir");
-                    if (elDir) elDir.innerText = `${Math.round(windDeg)}° (${getWindCompass(windDeg)})`;
-                    const slDir = document.getElementById("slider-wind-dir");
-                    if (slDir) slDir.value = Math.round(windDeg);
-                }
+                syncWeatherHudFromTarget(cloudPct, rainMm, speedKmh, windDeg);
 
             } catch (err) {
-                console.warn("Weather update failed:", err);
+                console.warn("All weather providers failed:", err);
                 if (statusDot) statusDot.className = "hud-status error";
-                if (statusText) statusText.innerText = "Connection Error (Using default)";
+                if (statusText) statusText.textContent = hasLoadedCache ? "Offline (Cached)" : "Connection Error (Default)";
+                targetWeather.moonPhase = getAstronomicalMoonPhase();
+                updateMoonHud(targetWeather.moonPhase);
+                scheduleEarlyWeatherRetry();
+            } finally {
+                isFetchingWeather = false;
             }
+        }
+
+        if (hasLoadedCache) {
+            syncWeatherHudFromTarget(
+                targetWeather.cloudDensity * 100.0,
+                targetWeather.rainIntensity * 3.0,
+                targetWeather.windSpeed * 50.0,
+                targetWeather.windRad * (180.0 / Math.PI)
+            );
+        } else {
+            updateMoonHud(targetWeather.moonPhase);
         }
 
         updateWeather();
         setInterval(updateWeather, WEATHER_UPDATE_INTERVAL_MS);
 
         function updateClock() {
-            const timeInfo = document.getElementById("time-info");
-            if (timeInfo) {
-                timeInfo.innerText = `Local Time: ${new Date().toLocaleTimeString()}`;
+            const now = new Date();
+            const nowMs = now.getTime();
+
+            const moonPhase = getAstronomicalMoonPhase(nowMs);
+            targetWeather.moonPhase = moonPhase;
+            updateMoonHud(moonPhase);
+
+            if (targetWeather.sourceName === "AWC" && targetWeather.obsTimeSec !== null) {
+                updateMetarInfoHud();
+            }
+
+            if (timeInfoEl) {
+                const targetDate = getTargetLocationDate(nowMs);
+                const hh = String(targetDate.getUTCHours()).padStart(2, "0");
+                const mm = String(targetDate.getUTCMinutes()).padStart(2, "0");
+                const ss = String(targetDate.getUTCSeconds()).padStart(2, "0");
+                timeInfoEl.textContent = `Location Time: ${hh}:${mm}:${ss}`;
             }
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        const sliderTime = document.getElementById("slider-time");
-        const valTime = document.getElementById("val-time");
-        const badgeTimeMode = document.getElementById("badge-time-mode");
+        let lastUserInteractionMs = performance.now();
+        let isOnBatteryPower = false;
+
+        function markUserInteraction() {
+            lastUserInteractionMs = performance.now();
+        }
+
+        if (typeof navigator !== "undefined" && typeof navigator.getBattery === "function") {
+            navigator.getBattery().then((battery) => {
+                const syncBatteryState = () => {
+                    isOnBatteryPower = !battery.charging;
+                };
+                syncBatteryState();
+                battery.addEventListener("chargingchange", syncBatteryState);
+            }).catch(() => { });
+        }
+
+        let lastDisplayedTimeLabel = "";
 
         sliderTime.addEventListener("input", (e) => {
+            markUserInteraction();
             state.timeMode = 2;
             state.manualHour = parseFloat(e.target.value);
             updateTimeBadge();
         });
 
         badgeTimeMode.addEventListener("click", () => {
+            markUserInteraction();
             cycleTimeMode();
         });
 
         function updateTimeBadge() {
             if (state.timeMode === 0) {
-                badgeTimeMode.innerText = "Real Time";
+                badgeTimeMode.textContent = "Real Time";
+                lastDisplayedTimeLabel = "";
             } else if (state.timeMode === 1) {
-                badgeTimeMode.innerText = "Fast Forward";
+                badgeTimeMode.textContent = "Fast Forward";
+                lastDisplayedTimeLabel = "";
             } else {
-                badgeTimeMode.innerText = "Manual";
+                badgeTimeMode.textContent = "Manual";
                 const h = Math.floor(state.manualHour);
                 const m = Math.floor((state.manualHour - h) * 60);
-                valTime.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                const label = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                valTime.textContent = label;
+                lastDisplayedTimeLabel = label;
             }
         }
 
@@ -1557,279 +2682,400 @@ void main() {
             updateTimeBadge();
         }
 
-        const sliderCloud = document.getElementById("slider-cloud");
-        const valCloud = document.getElementById("val-cloud");
-        const badgeCloudMode = document.getElementById("badge-cloud-mode");
-
         sliderCloud.addEventListener("input", (e) => {
-            state.cloudMode = 1;
-            state.manualCloud = parseInt(e.target.value) / 100.0;
-            badgeCloudMode.innerText = "Manual";
-            valCloud.innerText = `${e.target.value}%`;
+            markUserInteraction();
+            state.cloudMode = 3;
+            state.manualCloud = parseInt(e.target.value, 10) / 100.0;
+            badgeCloudMode.textContent = "Manual";
+            valCloud.textContent = `${e.target.value}%`;
         });
 
         badgeCloudMode.addEventListener("click", () => {
-            toggleCloudMode();
+            markUserInteraction();
+            cycleCloudMode();
         });
 
-        function toggleCloudMode() {
-            state.cloudMode = (state.cloudMode === 0) ? 1 : 0;
-            badgeCloudMode.innerText = (state.cloudMode === 0) ? "API" : "Manual";
+        function updateCloudUi() {
             if (state.cloudMode === 0) {
+                badgeCloudMode.textContent = "API";
                 const cloudPct = Math.round(targetWeather.cloudDensity * 100);
-                valCloud.innerText = `${cloudPct}%`;
+                valCloud.textContent = `${cloudPct}%`;
+                sliderCloud.value = cloudPct;
+            } else if (state.cloudMode === 1) {
+                badgeCloudMode.textContent = "Overcast (96%)";
+                valCloud.textContent = "96%";
+                sliderCloud.value = 96;
+            } else if (state.cloudMode === 2) {
+                badgeCloudMode.textContent = "Clear (5%)";
+                valCloud.textContent = "5%";
+                sliderCloud.value = 5;
+            } else {
+                badgeCloudMode.textContent = "Manual";
+                const cloudPct = Math.round(state.manualCloud * 100);
+                valCloud.textContent = `${cloudPct}%`;
                 sliderCloud.value = cloudPct;
             }
         }
 
-        const sliderRain = document.getElementById("slider-rain");
-        const valRain = document.getElementById("val-rain");
-        const badgeRainMode = document.getElementById("badge-rain-mode");
+        function cycleCloudMode() {
+            state.cloudMode = (state.cloudMode + 1) % 4;
+            updateCloudUi();
+        }
 
         sliderRain.addEventListener("input", (e) => {
+            markUserInteraction();
             state.rainMode = 2;
             const mm = parseFloat(e.target.value);
             state.manualRain = Math.min(mm / 3.0, 20.0 / 3.0);
-            badgeRainMode.innerText = "Manual";
-            valRain.innerText = `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
+            badgeRainMode.textContent = "Manual";
+            valRain.textContent = `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
         });
 
         badgeRainMode.addEventListener("click", () => {
+            markUserInteraction();
             cycleRainMode();
         });
 
-        function cycleRainMode() {
-            state.rainMode = (state.rainMode + 1) % 3;
+        function updateRainUi() {
             if (state.rainMode === 0) {
-                badgeRainMode.innerText = "API";
+                badgeRainMode.textContent = "API";
                 const rainVal = targetWeather.rainIntensity * 3.0;
-                valRain.innerText = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
+                valRain.textContent = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
                 sliderRain.value = Math.min(rainVal, 20.0);
             } else if (state.rainMode === 1) {
-                badgeRainMode.innerText = "Heavy Rain";
-                state.manualRain = 1.5;
-                valRain.innerText = "20.0 mm/h (Heavy Rain)";
+                badgeRainMode.textContent = "Heavy Rain (20mm)";
+                valRain.textContent = "20.0 mm/h (Heavy Rain)";
                 sliderRain.value = 20.0;
             } else {
-                badgeRainMode.innerText = "Manual";
+                badgeRainMode.textContent = "Manual";
                 const rainVal = state.manualRain * 3.0;
-                valRain.innerText = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
+                valRain.textContent = `${rainVal.toFixed(1)} mm/h (${getRainDescription(rainVal)})`;
                 sliderRain.value = Math.min(rainVal, 20.0);
             }
         }
 
-        const sliderWind = document.getElementById("slider-wind");
-        const valWind = document.getElementById("val-wind");
-        const badgeWindMode = document.getElementById("badge-wind-mode");
-        const sliderWindDir = document.getElementById("slider-wind-dir");
-        const valWindDir = document.getElementById("val-wind-dir");
+        function cycleRainMode() {
+            state.rainMode = (state.rainMode + 1) % 3;
+            updateRainUi();
+        }
 
         sliderWind.addEventListener("input", (e) => {
+            markUserInteraction();
             state.windMode = 1;
             const kmh = parseFloat(e.target.value);
-            state.manualWindSpeed = Math.max(0.08, Math.min(0.35, kmh / 50.0));
-            badgeWindMode.innerText = "Manual";
-            valWind.innerText = `${kmh.toFixed(1)} km/h`;
+            state.manualWindSpeed = Math.min(0.35, kmh / 50.0);
+            badgeWindMode.textContent = "Manual";
+            valWind.textContent = `${kmh.toFixed(1)} km/h`;
         });
 
         sliderWindDir.addEventListener("input", (e) => {
+            markUserInteraction();
             state.windMode = 1;
             const deg = parseFloat(e.target.value);
             state.manualWindDeg = deg;
-            badgeWindMode.innerText = "Manual";
-            valWindDir.innerText = `${Math.round(deg)}° (${getWindCompass(deg)})`;
+            badgeWindMode.textContent = "Manual";
+            valWindDir.textContent = `${Math.round(deg)}° (${getWindCompass(deg)})`;
         });
+
+        function toggleWindMode() {
+            state.windMode = (state.windMode === 0) ? 1 : 0;
+            badgeWindMode.textContent = (state.windMode === 0) ? "API" : "Manual";
+            if (state.windMode === 0) {
+                const kmh = targetWeather.windSpeed * 50.0;
+                const deg = targetWeather.windRad * (180.0 / Math.PI);
+                valWind.textContent = `${kmh.toFixed(1)} km/h`;
+                sliderWind.value = Math.min(kmh, 40.0);
+                valWindDir.textContent = targetWeather.isVariableWind ? "VRB" : `${Math.round(deg)}° (${getWindCompass(deg)})`;
+                sliderWindDir.value = Math.round(deg);
+            } else {
+                const kmh = state.manualWindSpeed * 50.0;
+                valWind.textContent = `${kmh.toFixed(1)} km/h`;
+                sliderWind.value = Math.min(kmh, 40.0);
+                valWindDir.textContent = `${Math.round(state.manualWindDeg)}° (${getWindCompass(state.manualWindDeg)})`;
+                sliderWindDir.value = Math.round(state.manualWindDeg);
+            }
+        }
 
         badgeWindMode.addEventListener("click", () => {
-            state.windMode = (state.windMode === 0) ? 1 : 0;
-            badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+            markUserInteraction();
+            toggleWindMode();
         });
 
-        const sliderMist = document.getElementById("slider-mist");
-        const valMist = document.getElementById("val-mist");
-        const badgeMistMode = document.getElementById("badge-mist-mode");
-
         sliderMist.addEventListener("input", (e) => {
-            state.mistMode = 1;
-            state.manualMist = parseInt(e.target.value) / 100.0;
-            badgeMistMode.innerText = "Manual";
-            valMist.innerText = `${e.target.value}%`;
-            if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, state.manualMist);
+            markUserInteraction();
+            state.mistMode = 3;
+            state.manualMist = parseInt(e.target.value, 10) / 100.0;
+            badgeMistMode.textContent = "Manual";
+            valMist.textContent = `${e.target.value}%`;
         });
 
         badgeMistMode.addEventListener("click", () => {
+            markUserInteraction();
             cycleMistMode();
         });
 
         function cycleMistMode() {
-            state.mistMode = (state.mistMode + 1) % 3;
-            if (state.mistMode === 0) {
-                badgeMistMode.innerText = "Auto (5h-8h)";
-                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 0.0);
-            } else if (state.mistMode === 1) {
-                badgeMistMode.innerText = "Always On";
-                state.manualMist = 1.0;
-                valMist.innerText = "100%";
-                sliderMist.value = 100;
-                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 1.0);
-            } else {
-                badgeMistMode.innerText = "Always Off";
-                state.manualMist = 0.0;
-                valMist.innerText = "0%";
-                sliderMist.value = 0;
-                if (gl && uMistOverrideLoc) gl.uniform1f(uMistOverrideLoc, 0.0);
+            state.mistMode = (state.mistMode + 1) % 4;
+            updateMistUi();
+        }
+
+        function updateScaleModeUi() {
+            if (badgeScaleMode) {
+                badgeScaleMode.textContent = (state.scaleMode === 0) ? "[0] Cover (21:9)" : "[0] Contain";
             }
         }
 
-        function setupBoostSlider(sliderId, valId, propName, uniformLocGetter) {
+        function toggleScaleMode() {
+            state.scaleMode = (state.scaleMode === 0) ? 1 : 0;
+            if (gl && !gl.isContextLost() && program && uScaleModeLoc) {
+                gl.useProgram(program);
+                gl.uniform1i(uScaleModeLoc, state.scaleMode);
+            }
+            updateUvTransform();
+            updateScaleModeUi();
+        }
+
+        if (badgeScaleMode) {
+            badgeScaleMode.addEventListener("click", () => {
+                markUserInteraction();
+                toggleScaleMode();
+            });
+        }
+
+        function setupBoostSlider(sliderId, valId, propName) {
             const slider = document.getElementById(sliderId);
             const val = document.getElementById(valId);
             if (!slider || !val) return;
             slider.addEventListener("input", (e) => {
-                const num = parseInt(e.target.value);
+                markUserInteraction();
+                const num = parseInt(e.target.value, 10);
                 state[propName] = num / 100.0;
-                val.innerText = `${num}%`;
-                const loc = uniformLocGetter();
-                if (gl && loc) gl.uniform1f(loc, state[propName]);
+                val.textContent = `${num}%`;
             });
         }
 
-        setupBoostSlider("slider-moon", "val-moon", "moonBoost", () => uMoonBoostLoc);
-        setupBoostSlider("slider-caustic", "val-caustic", "causticBoost", () => uCausticBoostLoc);
-        setupBoostSlider("slider-ray", "val-ray", "rayBoost", () => uRayBoostLoc);
-        setupBoostSlider("slider-glint", "val-glint", "glintBoost", () => uGlintBoostLoc);
-        setupBoostSlider("slider-star", "val-star", "starBoost", () => uStarBoostLoc);
-        setupBoostSlider("slider-ripple", "val-ripple", "rippleBoost", () => uRippleBoostLoc);
-        setupBoostSlider("slider-firefly", "val-firefly", "fireflyBoost", () => uFireflyBoostLoc);
+        setupBoostSlider("slider-cloud-speed", "val-cloud-speed", "cloudSpeedScale");
+        setupBoostSlider("slider-cloud-shadow", "val-cloud-shadow", "cloudShadowBoost");
+        setupBoostSlider("slider-moon", "val-moon", "moonBoost");
+        setupBoostSlider("slider-caustic", "val-caustic", "causticBoost");
+        setupBoostSlider("slider-ray", "val-ray", "rayBoost");
+        setupBoostSlider("slider-glint", "val-glint", "glintBoost");
+        setupBoostSlider("slider-star", "val-star", "starBoost");
+        setupBoostSlider("slider-ripple", "val-ripple", "rippleBoost");
+        setupBoostSlider("slider-firefly", "val-firefly", "fireflyBoost");
+        setupBoostSlider("slider-meteor", "val-meteor", "meteorBoost");
+
+        const btnMeteorShower = document.getElementById("btn-meteor-shower");
+
+        function updateMeteorShowerUi() {
+            if (!btnMeteorShower) return;
+            if (state.meteorShowerPermanent) {
+                btnMeteorShower.className = "hud-btn active";
+                btnMeteorShower.textContent = "Permanent: ON";
+            } else {
+                btnMeteorShower.className = "hud-btn";
+                btnMeteorShower.textContent = "Permanent: OFF";
+            }
+        }
+
+        function toggleMeteorShowerPermanent() {
+            state.meteorShowerPermanent = !state.meteorShowerPermanent;
+            if (state.meteorShowerPermanent) {
+                const dir = (Math.random() < 0.5) ? 1.0 : -1.0;
+                const slopeDeg = 30.0 + Math.random() * 6.5;
+                const slopeRad = slopeDeg * (Math.PI / 180.0);
+                meteorPityState.showerDir = dir;
+                meteorPityState.showerAngle = (dir > 0.0) ? (2.0 * Math.PI - slopeRad) : (Math.PI + slopeRad);
+            }
+            updateMeteorShowerUi();
+            updateWingDropletsUi();
+        }
+
+        if (btnMeteorShower) {
+            btnMeteorShower.addEventListener("click", () => {
+                markUserInteraction();
+                toggleMeteorShowerPermanent();
+            });
+        }
+
+        const btnSpawnStar = document.getElementById("btn-spawn-star");
+        if (btnSpawnStar) {
+            btnSpawnStar.addEventListener("click", () => {
+                markUserInteraction();
+                triggerSporadicStar(performance.now());
+            });
+        }
+
+        const btnWingDroplets = document.getElementById("btn-wing-droplets");
+
+        function updateWingDropletsUi() {
+            if (!btnWingDroplets) return;
+            if (state.wingDropletsEnabled) {
+                btnWingDroplets.className = "hud-btn active";
+                if (wingDryingState.wasRaining && wingDryingState.rainStopTime > 0 && wingDryingState.wetness > 0.001) {
+                    const elapsed = (Date.now() - wingDryingState.rainStopTime) * 0.001;
+                    const remMin = Math.max(0, Math.ceil((1800.0 - elapsed) / 60.0));
+                    btnWingDroplets.textContent = `Drops: Dry (${remMin}m)`;
+                } else {
+                    btnWingDroplets.textContent = "Drops: ON [v12]";
+                }
+            } else {
+                btnWingDroplets.className = "hud-btn";
+                btnWingDroplets.textContent = "Drops: OFF [v12]";
+            }
+        }
+
+        function toggleWingDroplets() {
+            state.wingDropletsEnabled = !state.wingDropletsEnabled;
+            updateWingDropletsUi();
+        }
+
+        if (btnWingDroplets) {
+            btnWingDroplets.addEventListener("click", () => {
+                markUserInteraction();
+                toggleWingDroplets();
+            });
+        }
+
+        function applyHudVisibility() {
+            const hud = document.getElementById("weather-hud");
+            if (!hud) return;
+            hud.style.opacity = isHudVisible ? "1" : "0";
+            hud.style.pointerEvents = isHudVisible ? "auto" : "none";
+            hud.inert = !isHudVisible;
+            hud.setAttribute("aria-hidden", String(!isHudVisible));
+        }
 
         function applyInitialUiState() {
-            const hud = document.getElementById("weather-hud");
-            if (hud) {
-                hud.style.opacity = isHudVisible ? "1" : "0";
-                hud.style.pointerEvents = isHudVisible ? "auto" : "none";
-            }
+            applyHudVisibility();
+            updateScaleModeUi();
+            updateMeteorShowerUi();
 
             if (sliderTime) sliderTime.value = state.manualHour;
             updateTimeBadge();
 
-            if (sliderCloud) sliderCloud.value = Math.round(state.manualCloud * 100);
-            if (badgeCloudMode) badgeCloudMode.innerText = (state.cloudMode === 0) ? "API" : "Manual";
-            if (valCloud) valCloud.innerText = (state.cloudMode === 0) ? "50%" : `${Math.round(state.manualCloud * 100)}%`;
-
-            if (sliderRain) sliderRain.value = (state.rainMode === 1) ? 20 : (state.manualRain * 3.0);
-            if (badgeRainMode) badgeRainMode.innerText = (state.rainMode === 0) ? "API" : (state.rainMode === 1 ? "Heavy (20mm)" : "Manual");
-            if (valRain) {
-                const mm = (state.rainMode === 1) ? 20.0 : (state.manualRain * 3.0);
-                valRain.innerText = (state.rainMode === 0) ? "0.0 mm/h (Dry)" : `${mm.toFixed(1)} mm/h (${getRainDescription(mm)})`;
-            }
+            updateCloudUi();
+            updateRainUi();
 
             if (sliderWind) sliderWind.value = (state.manualWindSpeed * 50.0);
             if (sliderWindDir) sliderWindDir.value = state.manualWindDeg;
-            if (badgeWindMode) badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
-            if (valWind) valWind.innerText = `${(state.manualWindSpeed * 50.0).toFixed(1)} km/h`;
-            if (valWindDir) valWindDir.innerText = `${Math.round(state.manualWindDeg)}° (${getWindCompass(state.manualWindDeg)})`;
+            if (badgeWindMode) badgeWindMode.textContent = (state.windMode === 0) ? "API" : "Manual";
+            if (valWind) valWind.textContent = `${(state.manualWindSpeed * 50.0).toFixed(1)} km/h`;
+            if (valWindDir) valWindDir.textContent = `${Math.round(state.manualWindDeg)}° (${getWindCompass(state.manualWindDeg)})`;
 
-            if (sliderMist) sliderMist.value = Math.round(state.manualMist * 100);
-            if (badgeMistMode) badgeMistMode.innerText = (state.mistMode === 0) ? "Auto" : "Manual";
-            if (valMist) valMist.innerText = `${Math.round(state.manualMist * 100)}%`;
+            updateMistUi();
 
             const boosts = [
+                ["slider-cloud-speed", "val-cloud-speed", "cloudSpeedScale"],
+                ["slider-cloud-shadow", "val-cloud-shadow", "cloudShadowBoost"],
                 ["slider-moon", "val-moon", "moonBoost"],
                 ["slider-caustic", "val-caustic", "causticBoost"],
                 ["slider-ray", "val-ray", "rayBoost"],
                 ["slider-glint", "val-glint", "glintBoost"],
                 ["slider-star", "val-star", "starBoost"],
                 ["slider-ripple", "val-ripple", "rippleBoost"],
-                ["slider-firefly", "val-firefly", "fireflyBoost"]
+                ["slider-firefly", "val-firefly", "fireflyBoost"],
+                ["slider-meteor", "val-meteor", "meteorBoost"]
             ];
             for (const [sId, vId, prop] of boosts) {
                 const sl = document.getElementById(sId);
                 const vl = document.getElementById(vId);
                 const pct = Math.round(state[prop] * 100);
                 if (sl) sl.value = pct;
-                if (vl) vl.innerText = `${pct}%`;
+                if (vl) vl.textContent = `${pct}%`;
             }
         }
         applyInitialUiState();
 
-        function toggleEffect(propName, sliderId, valId, uniformLocGetter) {
+        function toggleEffect(propName, sliderId, valId) {
             if (state[propName] > 0.0) {
                 state[propName] = 0.0;
                 const sl = document.getElementById(sliderId);
                 if (sl) sl.value = 0;
                 const val = document.getElementById(valId);
-                if (val) val.innerText = "0%";
+                if (val) val.textContent = "0%";
             } else {
                 state[propName] = 1.0;
                 const sl = document.getElementById(sliderId);
                 if (sl) sl.value = 100;
                 const val = document.getElementById(valId);
-                if (val) val.innerText = "100%";
+                if (val) val.textContent = "100%";
             }
-            const loc = uniformLocGetter();
-            if (gl && loc) gl.uniform1f(loc, state[propName]);
         }
 
         window.addEventListener("keydown", (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            const tag = e.target && e.target.tagName;
+            if (tag === "TEXTAREA" || tag === "SELECT") return;
+
             const k = e.key.toLowerCase();
 
-            if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+            if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
+                markUserInteraction();
+                toggleScaleMode();
+            } else if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+                markUserInteraction();
                 cycleRainMode();
             } else if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') {
+                markUserInteraction();
                 cycleTimeMode();
             } else if (e.key === '4' || e.code === 'Digit4' || e.code === 'Numpad4') {
+                markUserInteraction();
                 isHudVisible = !isHudVisible;
-                const hud = document.getElementById("weather-hud");
-                if (hud) {
-                    hud.style.opacity = isHudVisible ? "1" : "0";
-                    hud.style.pointerEvents = isHudVisible ? "auto" : "none";
-                }
+                applyHudVisibility();
             } else if (e.key === '5' || e.code === 'Digit5' || e.code === 'Numpad5') {
+                markUserInteraction();
                 cycleMistMode();
             } else if (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6') {
-                if (state.cloudMode === 0) {
-                    state.cloudMode = 1;
-                    state.manualCloud = 0.96;
-                    badgeCloudMode.innerText = "Overcast (96%)";
-                    valCloud.innerText = "96%";
-                    sliderCloud.value = 96;
-                } else if (state.manualCloud > 0.5) {
-                    state.manualCloud = 0.05;
-                    badgeCloudMode.innerText = "Clear (5%)";
-                    valCloud.innerText = "5%";
-                    sliderCloud.value = 5;
-                } else {
-                    state.cloudMode = 0;
-                    badgeCloudMode.innerText = "API";
-                }
+                markUserInteraction();
+                cycleCloudMode();
             } else if (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7') {
-                state.windMode = (state.windMode === 0) ? 1 : 0;
-                badgeWindMode.innerText = (state.windMode === 0) ? "API" : "Manual";
+                markUserInteraction();
+                toggleWindMode();
             } else if (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8') {
+                markUserInteraction();
                 state.moonBoost = (state.moonBoost <= 1.0) ? 1.6 : 1.0;
                 const pct = Math.round(state.moonBoost * 100);
                 const sl = document.getElementById("slider-moon");
                 if (sl) sl.value = pct;
                 const val = document.getElementById("val-moon");
-                if (val) val.innerText = `${pct}%`;
-                if (gl && uMoonBoostLoc) gl.uniform1f(uMoonBoostLoc, state.moonBoost);
+                if (val) val.textContent = `${pct}%`;
             } else if (k === 'c') {
-                toggleEffect("causticBoost", "slider-caustic", "val-caustic", () => uCausticBoostLoc);
+                markUserInteraction();
+                toggleEffect("causticBoost", "slider-caustic", "val-caustic");
             } else if (k === 'r') {
-                toggleEffect("rayBoost", "slider-ray", "val-ray", () => uRayBoostLoc);
+                markUserInteraction();
+                toggleEffect("rayBoost", "slider-ray", "val-ray");
             } else if (k === 'g') {
-                toggleEffect("glintBoost", "slider-glint", "val-glint", () => uGlintBoostLoc);
+                markUserInteraction();
+                toggleEffect("glintBoost", "slider-glint", "val-glint");
             } else if (k === 's') {
-                toggleEffect("starBoost", "slider-star", "val-star", () => uStarBoostLoc);
+                markUserInteraction();
+                toggleEffect("starBoost", "slider-star", "val-star");
             } else if (k === 'w') {
-                toggleEffect("rippleBoost", "slider-ripple", "val-ripple", () => uRippleBoostLoc);
+                markUserInteraction();
+                toggleEffect("rippleBoost", "slider-ripple", "val-ripple");
             } else if (k === 'f') {
-                toggleEffect("fireflyBoost", "slider-firefly", "val-firefly", () => uFireflyBoostLoc);
+                markUserInteraction();
+                toggleEffect("fireflyBoost", "slider-firefly", "val-firefly");
+            } else if (k === 'm') {
+                markUserInteraction();
+                toggleEffect("meteorBoost", "slider-meteor", "val-meteor");
+            } else if (k === 'p' || k === 'b') {
+                markUserInteraction();
+                toggleMeteorShowerPermanent();
+            } else if (k === 'o') {
+                markUserInteraction();
+                triggerSporadicStar(performance.now());
+            } else if (k === 'd') {
+                markUserInteraction();
+                toggleWingDroplets();
             }
         });
 
         canvas.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
+            contextGeneration += 1;
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
@@ -1837,14 +3083,16 @@ void main() {
         }, false);
 
         canvas.addEventListener("webglcontextrestored", () => {
-            initWebGLResources();
-            resize();
-            initWallpaperImage();
-            if (isPageVisible && !animationFrameId) {
-                isVisibilityResumed = true;
-                lastRenderTimeMs = 0;
-                lastFrameTime = performance.now();
-                animationFrameId = requestAnimationFrame(render);
+            if (initWebGLResources()) {
+                resize();
+                updateUvTransform();
+                initWallpaperImage();
+                if (isPageVisible && !animationFrameId) {
+                    isVisibilityResumed = true;
+                    lastRenderTimeMs = 0;
+                    lastFrameTime = performance.now();
+                    animationFrameId = requestAnimationFrame(render);
+                }
             }
         }, false);
 
@@ -1856,10 +3104,11 @@ void main() {
             isPageVisible = !document.hidden;
             if (isPageVisible) {
                 isVisibilityResumed = true;
-                hasInitializedWeather = false;
                 lastRenderTimeMs = 0;
                 lastFrameTime = performance.now();
-                updateWeather();
+                if (performance.now() - lastWeatherFetchMs >= MIN_VISIBILITY_FETCH_INTERVAL_MS) {
+                    updateWeather();
+                }
                 if (!animationFrameId) {
                     animationFrameId = requestAnimationFrame(render);
                 }
@@ -1880,12 +3129,168 @@ void main() {
             return x * (1.0 - a) + y * a;
         }
 
-        const FRAME_INTERVAL_MS = 1000.0 / TARGET_FPS;
+        let currentTargetFps = TARGET_FPS;
+        let frameIntervalMs = 1000.0 / currentTargetFps;
+        let isHighFpsMode = true;
         let lastRenderTimeMs = 0;
         let lastFrameTime = performance.now();
         let accumulatedTime = 0.0;
         let cloudOffsetX = 0.0;
         let cloudOffsetY = 0.0;
+
+        function updateAdaptiveFrameRate(now, peakRain) {
+            const recentInteraction = (now - lastUserInteractionMs) < 1500.0;
+            const fastForward = (state.timeMode === 1);
+            const rainHighThresh = isOnBatteryPower ? 0.25 : 0.015;
+            const rainLowThresh = isOnBatteryPower ? 0.15 : 0.008;
+
+            const shouldBeHighFps = isHighFpsMode
+                ? (fastForward || recentInteraction || peakRain > rainLowThresh)
+                : (fastForward || recentInteraction || peakRain > rainHighThresh);
+
+            if (shouldBeHighFps !== isHighFpsMode) {
+                isHighFpsMode = shouldBeHighFps;
+                currentTargetFps = isHighFpsMode ? TARGET_FPS : IDLE_FPS;
+                frameIntervalMs = 1000.0 / currentTargetFps;
+                lastRenderTimeMs = now;
+            }
+        }
+
+        const METEOR_PITY_KEY = "weather_wallpaper_meteor_pity_v3";
+        let meteorPityState = {
+            chance: 0.1,
+            lastNightId: null,
+            tonightHasShower: false,
+            tonightHour: -1,
+            showerDir: -1.0,
+            showerAngle: 3.65,
+            showerTriggered: false
+        };
+
+        try {
+            const rawPity = localStorage.getItem(METEOR_PITY_KEY);
+            if (rawPity) {
+                const parsed = JSON.parse(rawPity);
+                if (typeof parsed.chance === "number") {
+                    meteorPityState = Object.assign(meteorPityState, parsed);
+                }
+            }
+        } catch (e) { }
+
+        const STAR_PITY_KEY = "weather_wallpaper_star_pity_v1";
+        let starPityState = {
+            chance: 0.1,
+            elapsedDryNightSec: 0,
+            lastCheckStep: 0,
+            activeStar: null
+        };
+
+        try {
+            const rawStar = localStorage.getItem(STAR_PITY_KEY);
+            if (rawStar) {
+                const parsed = JSON.parse(rawStar);
+                if (typeof parsed.chance === "number") {
+                    starPityState.chance = parsed.chance;
+                    starPityState.elapsedDryNightSec = parsed.elapsedDryNightSec || 0;
+                    starPityState.lastCheckStep = parsed.lastCheckStep || 0;
+                }
+            }
+        } catch (e) { }
+
+        const WING_DRYING_KEY = "weather_wallpaper_wing_drying_v1";
+        let wingDryingState = window.wingDryingState = {
+            wetness: 0.0,
+            wasRaining: false,
+            rainStopTime: 0,
+            wetnessAtStop: 0.0
+        };
+
+        try {
+            const rawDrying = localStorage.getItem(WING_DRYING_KEY);
+            if (rawDrying) {
+                const parsed = JSON.parse(rawDrying);
+                if (typeof parsed.rainStopTime === "number" && typeof parsed.wetnessAtStop === "number") {
+                    const elapsedSec = (Date.now() - parsed.rainStopTime) * 0.001;
+                    if (elapsedSec >= 0.0 && elapsedSec < 1800.0 && parsed.wetnessAtStop > 0.0) {
+                        wingDryingState.wasRaining = true;
+                        wingDryingState.rainStopTime = parsed.rainStopTime;
+                        wingDryingState.wetnessAtStop = parsed.wetnessAtStop;
+                        const factor = Math.max(0.0, 1.0 - (elapsedSec / 1800.0));
+                        wingDryingState.wetness = parsed.wetnessAtStop * factor;
+                    }
+                }
+            }
+        } catch (e) { }
+
+        function triggerSporadicStar(nowMs) {
+            starPityState.activeStar = {
+                startTime: nowMs,
+                dur: 0.90 + Math.random() * 0.35,
+                seed1: Math.random(),
+                seed2: Math.random()
+            };
+        }
+
+        function updateMeteorShowerSchedule(currentHour, sunriseH, sunsetH, isRaining) {
+            let nightId = null;
+            const utcOff = (targetWeather && typeof targetWeather.utcOffsetSeconds === "number") ? targetWeather.utcOffsetSeconds : DEFAULT_UTC_OFFSET_SECONDS;
+            const locMs = Date.now() + (utcOff * 1000);
+            if (currentHour >= sunsetH) {
+                nightId = new Date(locMs).toISOString().slice(0, 10);
+            } else if (currentHour < sunriseH) {
+                nightId = new Date(locMs - 86400000).toISOString().slice(0, 10);
+            }
+
+            if (nightId && nightId !== meteorPityState.lastNightId) {
+                if (meteorPityState.lastNightId !== null && !meteorPityState.showerTriggered) {
+                    meteorPityState.chance = Math.min(1.0, Math.round((meteorPityState.chance + 0.05) * 100) / 100);
+                }
+                meteorPityState.lastNightId = nightId;
+                meteorPityState.showerTriggered = false;
+
+                const roll = Math.random();
+                if (roll < meteorPityState.chance) {
+                    meteorPityState.tonightHasShower = true;
+                    const validHours = [];
+                    let h = Math.ceil(sunsetH);
+                    while (h < 24) { validHours.push(h); h++; }
+                    let h2 = 0;
+                    const limit = Math.floor(sunriseH);
+                    while (h2 <= limit) { validHours.push(h2); h2++; }
+                    if (validHours.length === 0) validHours.push(22);
+                    meteorPityState.tonightHour = validHours[Math.floor(Math.random() * validHours.length)];
+
+                    const dir = (Math.random() < 0.5) ? 1.0 : -1.0;
+                    const slopeDeg = 30.0 + Math.random() * 6.5;
+                    const slopeRad = slopeDeg * (Math.PI / 180.0);
+                    const baseAngle = (dir > 0.0) ? (2.0 * Math.PI - slopeRad) : (Math.PI + slopeRad);
+                    meteorPityState.showerDir = dir;
+                    meteorPityState.showerAngle = baseAngle;
+                } else {
+                    meteorPityState.tonightHasShower = false;
+                    meteorPityState.tonightHour = -1;
+                }
+                try {
+                    localStorage.setItem(METEOR_PITY_KEY, JSON.stringify(meteorPityState));
+                } catch (e) { }
+            }
+
+            let isShowerActive = false;
+            if (nightId && meteorPityState.tonightHasShower && !isRaining) {
+                const curIntHour = Math.floor(currentHour);
+                if (curIntHour === meteorPityState.tonightHour) {
+                    isShowerActive = true;
+                    if (!meteorPityState.showerTriggered) {
+                        meteorPityState.showerTriggered = true;
+                        meteorPityState.chance = 0.1;
+                        try {
+                            localStorage.setItem(METEOR_PITY_KEY, JSON.stringify(meteorPityState));
+                        } catch (e) { }
+                    }
+                }
+            }
+            return isShowerActive;
+        }
 
         function render(nowMs) {
             if (!isPageVisible) {
@@ -1896,7 +3301,8 @@ void main() {
             const now = nowMs || performance.now();
             animationFrameId = requestAnimationFrame(render);
 
-            if (lastRenderTimeMs > 0 && (now - lastRenderTimeMs < FRAME_INTERVAL_MS - 1.0)) {
+            const elapsedSinceLastRender = now - lastRenderTimeMs;
+            if (lastRenderTimeMs > 0 && elapsedSinceLastRender < frameIntervalMs - 1.0) {
                 return;
             }
 
@@ -1905,32 +3311,50 @@ void main() {
 
             const dt = (isResuming || lastFrameTime <= 0) ? 0.016 : Math.min((now - lastFrameTime) * 0.001, 0.1);
             lastFrameTime = now;
-            lastRenderTimeMs = now;
+            if (lastRenderTimeMs <= 0 || isResuming) {
+                lastRenderTimeMs = now;
+            } else {
+                lastRenderTimeMs = now - (elapsedSinceLastRender % frameIntervalMs);
+            }
 
             accumulatedTime += dt;
-            if (accumulatedTime > 86400.0) accumulatedTime -= 86400.0;
+            if (accumulatedTime >= TIME_WRAP_SECONDS) {
+                accumulatedTime -= TIME_WRAP_SECONDS;
+            }
 
-            const lerpFactor = isResuming ? 1.0 : (1.0 - Math.exp(-3.0 * dt));
+            const apiWeatherLerp = isResuming ? 1.0 : (1.0 - Math.exp(-dt / 30.0));
+            const uiLerpFactor = isResuming ? 1.0 : (1.0 - Math.exp(-6.0 * dt));
 
             if (state.timeMode === 0) {
-                currentWeather.timeOfDay = calculateRealTimeOfDay();
+                currentWeather.timeOfDay = calculateRealTimeOfDay(Date.now());
                 const currentHour = currentWeather.timeOfDay * 24.0;
                 const hh = Math.floor(currentHour);
                 const mm = Math.floor((currentHour - hh) * 60);
-                if (valTime) valTime.innerText = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
-                if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+                const label = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+                if (label !== lastDisplayedTimeLabel) {
+                    lastDisplayedTimeLabel = label;
+                    if (valTime) valTime.textContent = label;
+                    if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+                }
             } else if (state.timeMode === 1) {
                 currentWeather.timeOfDay = (accumulatedTime / 15.0) % 1.0;
                 const currentHour = currentWeather.timeOfDay * 24.0;
                 const hh = Math.floor(currentHour);
                 const mm = Math.floor((currentHour - hh) * 60);
-                if (valTime) valTime.innerText = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
-                if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+                const label = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+                if (label !== lastDisplayedTimeLabel) {
+                    lastDisplayedTimeLabel = label;
+                    if (valTime) valTime.textContent = label;
+                    if (sliderTime) sliderTime.value = currentHour.toFixed(1);
+                }
             } else {
                 currentWeather.timeOfDay = state.manualHour / 24.0;
             }
 
-            let effectiveCloud = (state.cloudMode === 0) ? targetWeather.cloudDensity : state.manualCloud;
+            let effectiveCloud = targetWeather.cloudDensity;
+            if (state.cloudMode === 1) effectiveCloud = 0.96;
+            else if (state.cloudMode === 2) effectiveCloud = 0.05;
+            else if (state.cloudMode === 3) effectiveCloud = state.manualCloud;
 
             let effectiveRain = 0.0;
             if (state.rainMode === 0) {
@@ -1955,15 +3379,24 @@ void main() {
             let effectiveSunset = targetWeather.sunsetHour;
             let effectiveMoonPhase = targetWeather.moonPhase;
 
+            const cloudLerp = (state.cloudMode === 0) ? apiWeatherLerp : uiLerpFactor;
+            const rainLerp = (state.rainMode === 0) ? apiWeatherLerp : uiLerpFactor;
+            const windLerp = (state.windMode === 0) ? apiWeatherLerp : uiLerpFactor;
+
             if (isResuming) {
                 currentWeather.cloudDensity = effectiveCloud;
+                currentWeather.cloudSpeedScale = state.cloudSpeedScale;
+            currentWeather.cloudShadowBoost = state.cloudShadowBoost;
                 currentWeather.rainIntensity = effectiveRain;
                 currentWeather.windSpeed = effectiveWindSpeed;
                 currentWeather.windRad = effectiveWindRad;
+                currentWeather.apiMist = targetWeather.apiMist;
+                currentWeather.mistWarmth = targetWeather.mistWarmth;
                 currentWeather.sunriseHour = effectiveSunrise;
                 currentWeather.sunsetHour = effectiveSunset;
                 currentWeather.moonPhase = effectiveMoonPhase;
                 currentWeather.moonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
+                currentWeather.moonUserBoost = state.moonBoost;
                 currentWeather.causticBoost = state.causticBoost;
                 currentWeather.rayBoost = state.rayBoost;
                 currentWeather.glintBoost = state.glintBoost;
@@ -1971,47 +3404,55 @@ void main() {
                 currentWeather.rippleBoost = state.rippleBoost;
                 currentWeather.fireflyBoost = state.fireflyBoost;
             } else {
-                currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * lerpFactor;
-                currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * lerpFactor;
-                currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * lerpFactor;
+                currentWeather.cloudDensity += (effectiveCloud - currentWeather.cloudDensity) * cloudLerp;
+                currentWeather.cloudSpeedScale += (state.cloudSpeedScale - currentWeather.cloudSpeedScale) * uiLerpFactor;
+            currentWeather.cloudShadowBoost += (state.cloudShadowBoost - currentWeather.cloudShadowBoost) * uiLerpFactor;
+                currentWeather.rainIntensity += (effectiveRain - currentWeather.rainIntensity) * rainLerp;
+                currentWeather.windSpeed += (effectiveWindSpeed - currentWeather.windSpeed) * windLerp;
+                currentWeather.apiMist += (targetWeather.apiMist - currentWeather.apiMist) * apiWeatherLerp;
+                currentWeather.mistWarmth += (targetWeather.mistWarmth - currentWeather.mistWarmth) * apiWeatherLerp;
 
                 let dRad = effectiveWindRad - currentWeather.windRad;
                 while (dRad > Math.PI) dRad -= 2.0 * Math.PI;
                 while (dRad < -Math.PI) dRad += 2.0 * Math.PI;
-                currentWeather.windRad += dRad * lerpFactor;
+                currentWeather.windRad += dRad * windLerp;
 
-                currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * lerpFactor;
-                currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * lerpFactor;
+                currentWeather.sunriseHour += (effectiveSunrise - currentWeather.sunriseHour) * apiWeatherLerp;
+                currentWeather.sunsetHour += (effectiveSunset - currentWeather.sunsetHour) * apiWeatherLerp;
 
                 let dMoon = effectiveMoonPhase - currentWeather.moonPhase;
                 if (dMoon > 0.5) dMoon -= 1.0;
                 else if (dMoon < -0.5) dMoon += 1.0;
-                currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * lerpFactor + 1.0) % 1.0;
+                currentWeather.moonPhase = (currentWeather.moonPhase + dMoon * uiLerpFactor + 1.0) % 1.0;
+                currentWeather.moonUserBoost += (state.moonBoost - currentWeather.moonUserBoost) * uiLerpFactor;
+                const effectiveMoonBoost = calculateMoonBoost(currentWeather.moonPhase) * currentWeather.moonUserBoost;
+                currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * uiLerpFactor;
 
-                const effectiveMoonBoost = calculateMoonBoost(currentWeather.moonPhase) * state.moonBoost;
-                currentWeather.moonBoost += (effectiveMoonBoost - currentWeather.moonBoost) * lerpFactor;
-
-                currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * lerpFactor;
-                currentWeather.rayBoost += (state.rayBoost - currentWeather.rayBoost) * lerpFactor;
-                currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * lerpFactor;
-                currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * lerpFactor;
-                currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * lerpFactor;
-                currentWeather.fireflyBoost += (state.fireflyBoost - currentWeather.fireflyBoost) * lerpFactor;
+                currentWeather.causticBoost += (state.causticBoost - currentWeather.causticBoost) * uiLerpFactor;
+                currentWeather.rayBoost += (state.rayBoost - currentWeather.rayBoost) * uiLerpFactor;
+                currentWeather.glintBoost += (state.glintBoost - currentWeather.glintBoost) * uiLerpFactor;
+                currentWeather.starBoost += (state.starBoost - currentWeather.starBoost) * uiLerpFactor;
+                currentWeather.rippleBoost += (state.rippleBoost - currentWeather.rippleBoost) * uiLerpFactor;
+                currentWeather.fireflyBoost += (state.fireflyBoost - currentWeather.fireflyBoost) * uiLerpFactor;
+                currentWeather.meteorBoost += (state.meteorBoost - currentWeather.meteorBoost) * uiLerpFactor;
             }
 
-            const cosW = Math.cos(currentWeather.windRad);
-            const sinW = Math.sin(currentWeather.windRad) * 0.5;
-            const wLen = Math.hypot(cosW, sinW);
-            const normWindX = (wLen > 0.001) ? (cosW / wLen) : 0.7071;
-            const normWindY = (wLen > 0.001) ? (sinW / wLen) : 0.353;
-            const windSlant = normWindX * Math.max(0.06, Math.min(0.45, currentWeather.windSpeed * 1.8));
+            updateAdaptiveFrameRate(now, Math.max(currentWeather.rainIntensity, effectiveRain));
 
-            cloudOffsetX += normWindX * currentWeather.windSpeed * dt;
-            cloudOffsetY += normWindY * currentWeather.windSpeed * dt;
-            if (cloudOffsetX > 2048.0) cloudOffsetX -= 2048.0;
-            else if (cloudOffsetX < -2048.0) cloudOffsetX += 2048.0;
-            if (cloudOffsetY > 2048.0) cloudOffsetY -= 2048.0;
-            else if (cloudOffsetY < -2048.0) cloudOffsetY += 2048.0;
+            const advectX = Math.sin(currentWeather.windRad);
+            const advectY = Math.cos(currentWeather.windRad) * 0.5;
+            const wLen = Math.hypot(advectX, advectY);
+            const normWindX = (wLen > 0.001) ? (advectX / wLen) : 0.7071;
+            const normWindY = (wLen > 0.001) ? (advectY / wLen) : 0.353;
+            const windSlant = (currentWeather.windSpeed > 0.001) ? (-normWindX * Math.min(0.45, currentWeather.windSpeed * 1.8)) : 0.0;
+            const cloudDriftSpeed = currentWeather.windSpeed * CLOUD_DRIFT_SPEED_SCALE * currentWeather.cloudSpeedScale;
+
+            cloudOffsetX += normWindX * cloudDriftSpeed * dt;
+            cloudOffsetY += normWindY * cloudDriftSpeed * dt;
+            if (cloudOffsetX >= 4096.0) cloudOffsetX -= 4096.0;
+            else if (cloudOffsetX <= -4096.0) cloudOffsetX += 4096.0;
+            if (cloudOffsetY >= 4096.0) cloudOffsetY -= 4096.0;
+            else if (cloudOffsetY <= -4096.0) cloudOffsetY += 4096.0;
 
             const currentHour = currentWeather.timeOfDay * 24.0;
             const sunrise = currentWeather.sunriseHour;
@@ -2025,8 +3466,10 @@ void main() {
             const dawnFactor = Math.exp(-Math.pow((currentHour - sunrise) / 0.70, 2.0));
             const sunsetFactor = Math.exp(-Math.pow((currentHour - sunset) / 0.70, 2.0));
 
-            const dawnRay = dawnFactor * smoothstep(sunrise - 0.30, sunrise + 0.15, currentHour);
-            const sunsetRay = sunsetFactor * (1.0 - smoothstep(sunset - 0.15, sunset + 0.30, currentHour));
+            const dawnRay = smoothstep(sunrise - 0.55, sunrise - 0.05, currentHour)
+                * (1.0 - smoothstep(sunrise + 0.25, sunrise + 1.15, currentHour));
+            const sunsetRay = smoothstep(sunset - 1.15, sunset - 0.25, currentHour)
+                * (1.0 - smoothstep(sunset + 0.05, sunset + 0.55, currentHour));
 
             const normRain = Math.max(0.0, Math.min(1.0, currentWeather.rainIntensity * 0.15));
             const finalCloudCover = Math.max(0.0, Math.min(1.0, currentWeather.cloudDensity + normRain * 0.35));
@@ -2077,47 +3520,248 @@ void main() {
             ambG = mix(ambG, ambG * 0.86, rainDim);
             ambB = mix(ambB, ambB * 0.92, rainDim);
 
-            const baseMoon = (state.moonBoost > 0.001) ? (currentWeather.moonBoost / state.moonBoost) : 1.0;
+            const baseMoon = (currentWeather.moonUserBoost > 0.001) ? (currentWeather.moonBoost / currentWeather.moonUserBoost) : 1.0;
             const isFullMoonNight = Math.max(0.0, Math.min(1.0, (baseMoon - 1.00) / 0.60));
+            const desatFactor = nightFactor * mix(0.30, 0.20, isFullMoonNight);
 
-            const autoMist = smoothstep(sunrise - 1.2, sunrise - 0.1, currentHour) * (1.0 - smoothstep(sunrise + 0.6, sunrise + 1.8, currentHour));
-            const mistOverride = (state.mistMode === 0) ? 0.0 : state.manualMist;
-            const morningMistWindow = Math.max(autoMist, mistOverride);
+            const fallbackDawnMist = smoothstep(sunrise - 1.2, sunrise - 0.1, currentHour)
+                * (1.0 - smoothstep(sunrise + 0.6, sunrise + 1.8, currentHour))
+                * (hasInitializedWeather ? 0.0 : 0.18);
+            const autoMist = Math.max(currentWeather.apiMist, fallbackDawnMist);
 
+            let morningMistWindow = autoMist;
+            if (state.mistMode === 1) {
+                morningMistWindow = 1.0;
+            } else if (state.mistMode === 2) {
+                morningMistWindow = 0.0;
+            } else if (state.mistMode === 3) {
+                morningMistWindow = state.manualMist;
+            }
+
+            if (state.mistMode === 0 && valMist && sliderMist) {
+                const autoPct = Math.round(morningMistWindow * 100);
+                if (sliderMist.value !== String(autoPct)) {
+                    sliderMist.value = autoPct;
+                    valMist.textContent = `${autoPct}%`;
+                }
+            }
+
+            const warmth = currentWeather.mistWarmth;
             const mistProgress = smoothstep(sunrise - 0.35, sunrise + 0.35, currentHour);
-            const mistDayR = mix(0.92, 1.0, dawnFactor);
-            const mistDayG = mix(0.95, 0.97, dawnFactor);
-            const mistDayB = mix(1.0, 0.92, dawnFactor);
+            const mistDayR = mix(mix(0.92, 1.0, dawnFactor), 0.96, warmth);
+            const mistDayG = mix(mix(0.95, 0.97, dawnFactor), 0.91, warmth);
+            const mistDayB = mix(mix(1.0, 0.92, dawnFactor), 0.80, warmth);
 
-            const mistR = mix(0.35, mistDayR, mistProgress);
-            const mistG = mix(0.45, mistDayG, mistProgress);
-            const mistB = mix(0.60, mistDayB, mistProgress);
+            const mistR = mix(mix(0.35, 0.45, warmth), mistDayR, mistProgress);
+            const mistG = mix(mix(0.45, 0.48, warmth), mistDayG, mistProgress);
+            const mistB = mix(mix(0.60, 0.50, warmth), mistDayB, mistProgress);
 
-            if (gl && program) {
-                gl.uniform1f(uTimeLoc, accumulatedTime);
-                gl.uniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
-                gl.uniform3f(uWindParamsLoc, cloudOffsetX, cloudOffsetY, windSlant);
-                gl.uniform1f(uMoonBoostLoc, currentWeather.moonBoost);
+            const preDawnDarkCutoff = 1.0 - smoothstep(sunrise - 1.25, sunrise - 0.98, currentHour);
+            const postSunsetMoonRise = smoothstep(sunset + 0.25, sunset + 0.85, currentHour);
+            const moonRayActive = (currentHour < sunrise) ? preDawnDarkCutoff : postSunsetMoonRise;
 
-                gl.uniform3f(uAmbientLoc, ambR, ambG, ambB);
-                gl.uniform4f(uDayNightFactorsLoc, dayFactor, nightFactor, dawnFactor, sunsetFactor);
-                gl.uniform4f(uWeatherFactorsLoc, normRain, finalCloudCover, dawnRay, sunsetRay);
-                gl.uniform4f(uMistParamsLoc, mistR, mistG, mistB, morningMistWindow);
-                gl.uniform1f(uIsFullMoonNightLoc, isFullMoonNight);
+            const sunVisibility = smoothstep(0.20, 0.55, dayFactor) * (1.0 - finalCloudCover * 0.65) * (1.0 - normRain);
+            const moonEmerge = smoothstep(0.15, 0.85, nightFactor)
+                * Math.max(0.0, 1.0 - Math.max(dawnFactor, sunsetFactor) * 0.90)
+                * ((currentHour < sunrise) ? mix(0.25, 1.0, preDawnDarkCutoff) : 1.0);
+            const moonVisibility = moonEmerge * (1.0 - finalCloudCover * 0.70) * (1.0 - normRain * 0.65);
 
-                gl.uniform1f(uCausticBoostLoc, currentWeather.causticBoost);
-                gl.uniform1f(uRayBoostLoc, currentWeather.rayBoost);
-                gl.uniform1f(uGlintBoostLoc, currentWeather.glintBoost);
-                gl.uniform1f(uStarBoostLoc, currentWeather.starBoost);
-                gl.uniform1f(uRippleBoostLoc, currentWeather.rippleBoost);
-                gl.uniform1f(uFireflyBoostLoc, currentWeather.fireflyBoost);
+            const dayCausticWeight = Math.max(0.0, sunVisibility) * currentWeather.causticBoost;
+            const nightCausticWeight = Math.max(0.0, moonVisibility) * currentWeather.moonBoost * currentWeather.causticBoost;
+
+            const cloudRayGrow = smoothstep(0.03, 0.70, finalCloudCover);
+            const rainRayTransmit = 1.0 - smoothstep(0.003, 0.06, normRain);
+            const sunCloudTerm = Math.max(dawnRay, sunsetRay) * 1.15 * cloudRayGrow;
+            const mistRayTerm = morningMistWindow * 0.30 * dayFactor * Math.max(cloudRayGrow, 0.35);
+            const dayRayWindow = (sunCloudTerm + mistRayTerm) * rainRayTransmit;
+
+            const moonIllumination = Math.max(0.0, Math.min(1.0, 1.0 - Math.abs(2.0 * currentWeather.moonPhase - 1.0)));
+            const moonRayCycle = moonIllumination * Math.max(0.0, Math.min(1.6, currentWeather.moonUserBoost));
+            const nightRayWindow = moonRayActive * (0.95 * moonRayCycle) * cloudRayGrow * rainRayTransmit;
+
+            const nightRayShare = nightRayWindow / (dayRayWindow + nightRayWindow + 0.0001);
+            const transitionDip = smoothstep(0.0, 0.35, Math.abs(nightRayShare - 0.5));
+            const rayWindow = Math.min(1.35, dayRayWindow + nightRayWindow) * transitionDip * currentWeather.rayBoost;
+
+            const sunsetRatio = sunsetFactor / (dawnFactor + sunsetFactor + 0.0001);
+            const dayRayColR = 1.00;
+            const dayRayColG = mix(0.90, 0.60, sunsetRatio);
+            const dayRayColB = mix(0.78, 0.35, sunsetRatio);
+
+            const nightRayColR = 0.58;
+            const nightRayColG = 0.80;
+            const nightRayColB = 1.05;
+
+            const rayColR = mix(dayRayColR, nightRayColR, nightRayShare);
+            const rayColG = mix(dayRayColG, nightRayColG, nightRayShare);
+            const rayColB = mix(dayRayColB, nightRayColB, nightRayShare);
+
+            const dayStart = sunrise - 0.50;
+            const dayEnd = sunset + 0.50;
+
+            const moonBeamStrength = 0.14 * currentWeather.moonBoost * moonEmerge * (1.0 - normRain * 0.50);
+            const moonOrigLumStrength = 0.30 * currentWeather.moonBoost * moonEmerge;
+            const moonWaveStrength = 0.40 * currentWeather.moonBoost * moonEmerge;
+
+            const glintWeight = (dayFactor > 0.20) ? (0.50 * dayFactor * (1.0 - finalCloudCover * 0.60) * (1.0 - normRain) * currentWeather.glintBoost) : 0.0;
+            const starWeight = (nightFactor > 0.30 && finalCloudCover < 1.0) ? (1.50 * nightFactor * currentWeather.starBoost * Math.max(0.0, Math.min(1.0, 1.0 - finalCloudCover))) : 0.0;
+            const fireflyActive = (normRain > 0.005 || currentWeather.rainIntensity > 0.01) ? 0.0 : (nightFactor * mix(0.55, 1.00, finalCloudCover));
+            const fireflyWeight = 1.60 * fireflyActive * currentWeather.fireflyBoost;
+
+            if (gl && !gl.isContextLost() && program) {
+                setUniform1f(uTimeLoc, accumulatedTime);
+                setUniform1f(uRainIntensityLoc, currentWeather.rainIntensity);
+                setUniform3f(uWindParamsLoc, cloudOffsetX, cloudOffsetY, windSlant);
+                setUniform1f(uRippleBoostLoc, currentWeather.rippleBoost);
+
+                setUniform3f(uAmbientLoc, ambR, ambG, ambB);
+                setUniform4f(uDayNightFactorsLoc, dayFactor, nightFactor, dawnFactor, sunsetFactor);
+                setUniform2f(uWeatherFactorsLoc, normRain, finalCloudCover);
+                setUniform1f(uCloudShadowBoostLoc, currentWeather.cloudShadowBoost);
+                setUniform4f(uMistParamsLoc, mistR, mistG, mistB, morningMistWindow);
+
+                setUniform2f(uCausticWeightsLoc, dayCausticWeight, nightCausticWeight);
+                setUniform4f(uRayColorAndWindowLoc, rayColR, rayColG, rayColB, rayWindow);
+                setUniform4f(uMoonParamsLoc, isFullMoonNight, moonBeamStrength, moonOrigLumStrength, moonWaveStrength);
+                const isRaining = (normRain > 0.005 || currentWeather.rainIntensity > 0.01);
+                if (isRaining) {
+                    wingDryingState.wasRaining = true;
+                    wingDryingState.rainStopTime = 0;
+                    const rainWetness = Math.max(0.40, normRain);
+                    wingDryingState.wetness += (rainWetness - wingDryingState.wetness) * Math.min(1.0, dt * 3.0);
+                    wingDryingState.wetnessAtStop = wingDryingState.wetness;
+                } else if (wingDryingState.wasRaining) {
+                    if (wingDryingState.rainStopTime <= 0) {
+                        wingDryingState.rainStopTime = Date.now();
+                        wingDryingState.wetnessAtStop = Math.max(0.40, wingDryingState.wetness);
+                        try {
+                            localStorage.setItem(WING_DRYING_KEY, JSON.stringify({
+                                rainStopTime: wingDryingState.rainStopTime,
+                                wetnessAtStop: wingDryingState.wetnessAtStop
+                            }));
+                        } catch (e) { }
+                    }
+                    const elapsedSec = (Date.now() - wingDryingState.rainStopTime) * 0.001;
+                    if (elapsedSec < 1800.0) {
+                        const dryingFactor = Math.max(0.0, 1.0 - (elapsedSec / 1800.0));
+                        wingDryingState.wetness = wingDryingState.wetnessAtStop * dryingFactor;
+                    } else {
+                        wingDryingState.wetness = 0.0;
+                        wingDryingState.wasRaining = false;
+                        wingDryingState.rainStopTime = 0;
+                        try {
+                            localStorage.removeItem(WING_DRYING_KEY);
+                        } catch (e) { }
+                    }
+                } else {
+                    wingDryingState.wetness = 0.0;
+                }
+                const isNight = (nightFactor > 0.20 && dayFactor < 0.10);
+
+                const naturalShowerActive = updateMeteorShowerSchedule(currentHour, sunrise, sunset, isRaining);
+                const meteorShowerVal = (!isRaining && isNight && (state.meteorShowerPermanent || naturalShowerActive)) ? 1.0 : 0.0;
+
+                let meteorWeight = 0.0;
+                if (!isRaining && isNight && finalCloudCover < 0.90) {
+                    const baseMeteor = nightFactor * (1.0 - finalCloudCover * 0.70) * currentWeather.meteorBoost;
+                    meteorWeight = (meteorShowerVal > 0.001) ? Math.max(baseMeteor, currentWeather.meteorBoost) : baseMeteor;
+                }
+
+                let starProg = -1.0;
+                let starSeed1 = 0.5;
+                let starSeed2 = 0.5;
+                let sporadicWeight = 0.0;
+
+                const isDryNight = (!isRaining && isNight && finalCloudCover < 0.90 && meteorShowerVal <= 0.001);
+
+                if (isDryNight) {
+                    if (starPityState.activeStar) {
+                        const starAge = (now - starPityState.activeStar.startTime) * 0.001;
+                        if (starAge >= starPityState.activeStar.dur) {
+                            starPityState.activeStar = null;
+                            starPityState.elapsedDryNightSec = 0;
+                            starPityState.lastCheckStep = 0;
+                            starPityState.chance = 0.1;
+                            try {
+                                localStorage.setItem(STAR_PITY_KEY, JSON.stringify({
+                                    chance: 0.1,
+                                    elapsedDryNightSec: 0,
+                                    lastCheckStep: 0
+                                }));
+                            } catch (e) { }
+                        } else {
+                            starProg = starAge / starPityState.activeStar.dur;
+                            starSeed1 = starPityState.activeStar.seed1;
+                            starSeed2 = starPityState.activeStar.seed2;
+                            sporadicWeight = 1.0;
+                        }
+                    } else {
+                        starPityState.elapsedDryNightSec += dt;
+                        const elapsed = starPityState.elapsedDryNightSec;
+                        if (elapsed >= 30.0) {
+                            const currentStep = Math.floor(elapsed / 30.0);
+                            if (currentStep > starPityState.lastCheckStep) {
+                                starPityState.lastCheckStep = currentStep;
+                                const stepChance = Math.min(1.0, 0.10 + (currentStep - 1) * (0.90 / 59.0));
+                                starPityState.chance = stepChance;
+                                const roll = Math.random();
+                                if (roll < stepChance || currentStep >= 60) {
+                                    triggerSporadicStar(now);
+                                    starProg = 0.0;
+                                    starSeed1 = starPityState.activeStar.seed1;
+                                    starSeed2 = starPityState.activeStar.seed2;
+                                    sporadicWeight = 1.0;
+                                }
+                                try {
+                                    localStorage.setItem(STAR_PITY_KEY, JSON.stringify({
+                                        chance: starPityState.chance,
+                                        elapsedDryNightSec: starPityState.elapsedDryNightSec,
+                                        lastCheckStep: starPityState.lastCheckStep
+                                    }));
+                                } catch (e) { }
+                            }
+                        }
+                    }
+                } else {
+                    starPityState.activeStar = null;
+                }
+
+                const labelStarPity = document.getElementById("label-star-pity");
+                if (labelStarPity) {
+                    if (!isNight) {
+                        labelStarPity.textContent = "Daytime: Paused";
+                    } else if (isRaining) {
+                        labelStarPity.textContent = "Raining: Paused";
+                    } else if (meteorShowerVal > 0.001) {
+                        labelStarPity.textContent = "Shower Active";
+                    } else if (starPityState.activeStar) {
+                        labelStarPity.textContent = "Star Streaking!";
+                    } else {
+                        const nextCheck = Math.max(0, Math.ceil(30.0 - (starPityState.elapsedDryNightSec % 30.0)));
+                        const totalMin = (starPityState.elapsedDryNightSec / 60.0).toFixed(1);
+                        const pct = Math.round(starPityState.chance * 100);
+                        labelStarPity.textContent = `Pity: ${pct}% | Next: ${nextCheck}s | Time: ${totalMin}m/30m`;
+                    }
+                }
+
+                const showerAngle = meteorPityState.showerAngle || 3.65;
+                const showerDirX = Math.cos(showerAngle);
+                const showerDirY = Math.sin(showerAngle);
+
+                setUniform1f(uMeteorWeightLoc, meteorWeight);
+                setUniform1f(uMeteorShowerLoc, meteorShowerVal);
+                setUniform2f(uMeteorShowerDirLoc, showerDirX, showerDirY);
+                setUniform4f(uSporadicStarLoc, starProg, starSeed1, starSeed2, sporadicWeight);
+                const wingDropletsVal = state.wingDropletsEnabled ? wingDryingState.wetness : 0.0;
+                setUniform1f(uWingDropletsLoc, wingDropletsVal);
+                setUniform4f(uMiscFactorsLoc, desatFactor, glintWeight, starWeight, fireflyWeight);
 
                 gl.drawArrays(gl.TRIANGLES, 0, 3);
             }
         }
 
         animationFrameId = requestAnimationFrame(render);
-
     </script>
 </body>
+
 </html>
